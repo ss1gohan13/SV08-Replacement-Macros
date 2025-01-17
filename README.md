@@ -25,3 +25,4 @@ To fix and replace all of Sovol SV08 macros
 - M190 removed - not needed
 - M196 can be removed - not needed for mainline
 - M107 can be removed - not needed for mainline
+- M600 modified - only use PAUSE - use/customize fluidd/mainsail config to use PAUSE macro and parking position
