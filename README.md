@@ -11,7 +11,7 @@ To fix and replace all of Sovol SV08 macros
 - TEST_BELT temp removed until confirmed working - Acquire Shake Tune and run calibration as workaround
 - QUAD_GANTRY_LEVEL removed - not needed - QGL is a klipper standard and can be integrated with replacement [start print macro](https://github.com/ss1gohan13/A-better-print_start-macro-SV08)
 - PROBE_CALIBRATE removed - this is a klipper standard - calibrate at your requested bed temp
-- BED_MESH_CALIBRATE removed - this is a klipper standard - BED_MESH_CALIBRATE ADAPTIVE=1 is the new standard
+- BED_MESH_CALIBRATE removed - this is a klipper standard - BED_MESH_CALIBRATE ADAPTIVE=1 is the new standard and integrated with replacement [start print macro](https://github.com/ss1gohan13/A-better-print_start-macro-SV08)
 - G34 remove - replaced with G29
 - bed_mesh_init - removed - not needed
 - _print_start_wait - removed - not needed
