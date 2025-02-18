@@ -23,7 +23,7 @@ To fix and replace all of Sovol SV08 macros
 - RESUME replaced - add fluidd or mainsail config, and customize, to specific requested settings
 - M109 removed - not needed
 - M190 removed - not needed
-- M196 can be removed - not needed for mainline
+- M106 can be removed - not needed for mainline - see mainline instructions for multipin fan
 - M107 can be removed - not needed for mainline
 - M600 modified - only use PAUSE - use/customize fluidd/mainsail config to use PAUSE macro and parking position
 - New toggle version of main LED light
