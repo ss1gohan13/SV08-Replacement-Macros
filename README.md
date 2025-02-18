@@ -1,3 +1,8 @@
+cd ~
+git clone https://github.com/ss1gohan13/SV08-Replacement-Macros.git
+cd SV08-Replacement-Macros
+./install-macros.sh
+
 # SV08-Replacement-Macros (WIP)
 To fix and replace all of Sovol SV08 macros
 
