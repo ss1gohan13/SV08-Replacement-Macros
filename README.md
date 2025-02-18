@@ -1,14 +1,46 @@
-Install Script: ssh into your printer and run this
+# SV08-Replacement-Macros (WIP)
 
-```
-cd ~
+<details>
+<summary>How to install the macros</summary>
+
+```cd ~
 git clone https://github.com/ss1gohan13/SV08-Replacement-Macros.git
 cd SV08-Replacement-Macros
 ./install-macros.sh
 ```
 
-# SV08-Replacement-Macros (WIP)
-To fix and replace all of Sovol SV08 macros
+This will:
+
+1) Stop the Klipper service
+2) Download the macro config from the github
+3) Backup the existing macro to `~/printer_data/config/backup/`
+4) Install the replacement macro
+5) Restart the klipper service
+
+</details>
+
+<details>
+<summary>How to uninstall the macros</summary>
+
+```cd ~/SV08-Replacement-Macros
+cd ~/SV08-Replacement-Macros
+./install-macros.sh -u
+
+# Then remove the repository
+cd ~
+rm -rf SV08-Replacement-Macros
+```
+
+This will:
+
+1) Stop the Klipper service
+2) Remove the replacement macros.cfg if no backup exists
+3) Restore your original macros.cfg from backup (if one exists)
+4) Restart the Klipper service
+
+</details>
+
+# Changes
 
 - Force move is moved into printer.cfg - Its not a macro... move it
 - _global_var is no longer needed
