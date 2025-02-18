@@ -68,9 +68,9 @@ backup_existing_macros() {
 
 # Install new macros.cfg
 install_macros() {
-    echo "Installing new macros.cfg..."
+    echo -n "Installing new macros.cfg... "
     cp "${SRCDIR}/printer_data/config/macros.cfg" "${KLIPPER_CONFIG}/macros.cfg"
-    echo "[OK] Macros installed successfully"
+    echo "[OK]"
 }
 
 # Restore backup if it exists
@@ -79,7 +79,7 @@ restore_backup() {
     if [ -n "$latest_backup" ]; then
         echo "Restoring from backup: $latest_backup"
         cp "$latest_backup" "${KLIPPER_CONFIG}/macros.cfg"
-        echo "[OK] Backup restored"
+        echo "[OK]"
     else
         echo "No backup found to restore"
         if [ -f "${KLIPPER_CONFIG}/macros.cfg" ]; then
@@ -89,10 +89,16 @@ restore_backup() {
     fi
 }
 
-# Restart Klipper service
-restart_klipper() {
-    echo -n "Restarting Klipper... "
-    sudo systemctl restart $KLIPPER_SERVICE_NAME
+# Service management functions
+start_klipper() {
+    echo -n "Starting Klipper... "
+    sudo systemctl start $KLIPPER_SERVICE_NAME
+    echo "[OK]"
+}
+
+stop_klipper() {
+    echo -n "Stopping Klipper... "
+    sudo systemctl stop $KLIPPER_SERVICE_NAME
     echo "[OK]"
 }
 
@@ -109,16 +115,17 @@ verify_ready
 check_klipper
 check_folders
 create_backup_dir
+stop_klipper
 
 if [ ! $UNINSTALL ]; then
     echo "Installing SV08 Replacement Macros..."
     backup_existing_macros
     install_macros
-    restart_klipper
+    start_klipper
     echo "Installation complete! Please check your printer's web interface to verify the changes."
 else
     echo "Uninstalling SV08 Replacement Macros..."
     restore_backup
-    restart_klipper
+    start_klipper
     echo "Uninstallation complete! Original configuration has been restored."
 fi
