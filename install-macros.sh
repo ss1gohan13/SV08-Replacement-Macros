@@ -3,7 +3,7 @@
 set -e
 
 # Script Info
-# Last Updated: 2025-02-19 03:45:43 UTC
+# Last Updated: 2025-02-19 03:57:59 UTC
 # Author: ss1gohan13
 
 KLIPPER_CONFIG="${HOME}/printer_data/config"
@@ -103,6 +103,66 @@ install_macros() {
     echo "[OK]"
 }
 
+# Enhanced check and update printer.cfg to include macros
+check_and_update_printer_cfg() {
+    local printer_cfg="${KLIPPER_CONFIG}/printer.cfg"
+    if [ ! -f "$printer_cfg" ]; then
+        echo "[WARNING] printer.cfg not found at ${printer_cfg}"
+        echo "You will need to manually add: [include macros.cfg] to your printer.cfg"
+        return
+    }
+
+    # More comprehensive check for existing includes
+    local include_found=0
+    
+    # Check for various possible include formats
+    while IFS= read -r line; do
+        # Skip empty lines
+        [ -z "$line" ] && continue
+        
+        # Remove leading/trailing whitespace
+        line=$(echo "$line" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+        
+        # Skip if line is empty after trimming
+        [ -z "$line" ] && continue
+        
+        # Skip commented lines
+        [[ $line == \#* ]] && continue
+        
+        # Convert line to lowercase for case-insensitive comparison
+        line_lower=$(echo "$line" | tr '[:upper:]' '[:lower:]')
+        
+        # Check for various include formats
+        if [[ "$line_lower" == "[include macros.cfg]" ]] || \
+           [[ "$line_lower" == "[include "./macros.cfg"]" ]] || \
+           [[ "$line_lower" == "[include \"macros.cfg\"]" ]] || \
+           [[ "$line_lower" == "[include 'macros.cfg']" ]]; then
+            include_found=1
+            echo "Found existing include for macros.cfg in printer.cfg:"
+            echo "  $line"
+            break
+        fi
+    done < "$printer_cfg"
+
+    if [ $include_found -eq 0 ]; then
+        # Create backup of printer.cfg
+        cp "$printer_cfg" "${BACKUP_DIR}/printer.cfg.backup_${CURRENT_DATE}"
+        echo "Created backup of printer.cfg at ${BACKUP_DIR}/printer.cfg.backup_${CURRENT_DATE}"
+
+        # Add include line to printer.cfg
+        echo "" >> "$printer_cfg"  # Add blank line for readability
+        echo "[include macros.cfg]" >> "$printer_cfg"
+        echo "Added [include macros.cfg] to printer.cfg"
+        
+        # Verify the addition
+        if grep -q "^\[include macros\.cfg\]" "$printer_cfg"; then
+            echo "Successfully verified the include line was added"
+        else
+            echo "[WARNING] Failed to verify the include line. Please check printer.cfg manually"
+        fi
+    fi
+}
+
 # Modified to restore latest backup of any macro variant
 restore_backup() {
     local latest_backup=$(ls -t ${BACKUP_DIR}/*macro*.cfg.backup_* 2>/dev/null | head -n1)
@@ -116,6 +176,15 @@ restore_backup() {
             echo "Removing installed macros.cfg"
             rm "${KLIPPER_CONFIG}/macros.cfg"
         fi
+    fi
+
+    # Restore printer.cfg if it was modified
+    local printer_cfg="${KLIPPER_CONFIG}/printer.cfg"
+    local printer_backup=$(ls -t ${BACKUP_DIR}/printer.cfg.backup_* 2>/dev/null | head -n1)
+    if [ -n "$printer_backup" ]; then
+        echo "Restoring printer.cfg from backup: $printer_backup"
+        cp "$printer_backup" "$printer_cfg"
+        echo "[OK]"
     fi
 }
 
@@ -151,6 +220,7 @@ if [ ! $UNINSTALL ]; then
     echo "Installing SV08 Replacement Macros..."
     backup_existing_macros
     install_macros
+    check_and_update_printer_cfg
     start_klipper
     echo "Installation complete! Please check your printer's web interface to verify the changes."
 else
