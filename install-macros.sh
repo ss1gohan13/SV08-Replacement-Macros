@@ -3,7 +3,7 @@
 set -e
 
 # Script Info
-# Last Updated: 2025-02-19 04:15:04 UTC
+# Last Updated: 2025-02-19 04:26:17 UTC
 # Author: ss1gohan13
 
 KLIPPER_CONFIG="${HOME}/printer_data/config"
@@ -25,8 +25,6 @@ MACRO_PATTERNS=(
     "sv08_*.cfg"
     "sovol-*.cfg"
     "sovol_*.cfg"
-    "printer-*.cfg"
-    "printer_*.cfg"
 )
 
 # Parse command line arguments
@@ -84,8 +82,7 @@ backup_existing_macros() {
     local found_macro=0
     for pattern in "${MACRO_PATTERNS[@]}"; do
         while IFS= read -r -d $'\0' file; do
-            # Skip hidden files
-            if [[ ! "$(basename "$file")" == .* ]]; then
+            if [[ ! "$(basename "$file")" =~ [0-9]{8}_[0-9]{6}\.cfg$ ]]; then
                 echo "Creating backup of existing ${file##*/}..."
                 cp "$file" "${BACKUP_DIR}/${file##*/}.backup_${CURRENT_DATE}"
                 echo "Backup created at ${BACKUP_DIR}/${file##*/}.backup_${CURRENT_DATE}"
@@ -109,10 +106,17 @@ install_macros() {
 # Check and update printer.cfg to include macros
 check_and_update_printer_cfg() {
     local printer_cfg="${KLIPPER_CONFIG}/printer.cfg"
-    # Check specifically for the main printer.cfg, not any hidden versions
-    if [ ! -f "$printer_cfg" ] || [[ "$(basename "$printer_cfg")" == .* ]]; then
+    
+    # Check specifically for the main printer.cfg
+    if [ ! -f "$printer_cfg" ]; then
         echo "[WARNING] printer.cfg not found at ${printer_cfg}"
         echo "You will need to manually add: [include macros.cfg] to your printer.cfg"
+        return
+    fi
+
+    # Check if this is a timestamped backup version
+    if [[ "$(basename "$printer_cfg")" =~ [0-9]{8}_[0-9]{6}\.cfg$ ]]; then
+        echo "[WARNING] Detected timestamped printer config, skipping modification"
         return
     fi
 
@@ -148,27 +152,24 @@ check_and_update_printer_cfg() {
     done < "$printer_cfg"
 
     if [ $include_found -eq 0 ]; then
-        # Only backup the main printer.cfg, not hidden versions
-        if [[ ! "$(basename "$printer_cfg")" == .* ]]; then
-            cp "$printer_cfg" "${BACKUP_DIR}/printer.cfg.backup_${CURRENT_DATE}"
-            echo "Created backup of printer.cfg at ${BACKUP_DIR}/printer.cfg.backup_${CURRENT_DATE}"
+        cp "$printer_cfg" "${BACKUP_DIR}/printer.cfg.backup_${CURRENT_DATE}"
+        echo "Created backup of printer.cfg at ${BACKUP_DIR}/printer.cfg.backup_${CURRENT_DATE}"
 
-            # Add include line to printer.cfg
-            echo "" >> "$printer_cfg"  # Add blank line for readability
-            echo "[include macros.cfg]" >> "$printer_cfg"
-            echo "Added [include macros.cfg] to printer.cfg"
-            
-            # Verify the addition
-            if grep -q "^\[include macros\.cfg\]" "$printer_cfg"; then
-                echo "Successfully verified the include line was added"
-            else
-                echo "[WARNING] Failed to verify the include line. Please check printer.cfg manually"
-            fi
+        # Add include line to printer.cfg
+        echo "" >> "$printer_cfg"  # Add blank line for readability
+        echo "[include macros.cfg]" >> "$printer_cfg"
+        echo "Added [include macros.cfg] to printer.cfg"
+        
+        # Verify the addition
+        if grep -q "^\[include macros\.cfg\]" "$printer_cfg"; then
+            echo "Successfully verified the include line was added"
+        else
+            echo "[WARNING] Failed to verify the include line. Please check printer.cfg manually"
         fi
     fi
 }
 
-# Modified to restore latest backup of any macro variant and only main printer.cfg
+# Modified to restore latest backup of any macro variant
 restore_backup() {
     local latest_backup=$(ls -t ${BACKUP_DIR}/*macro*.cfg.backup_* 2>/dev/null | head -n1)
     if [ -n "$latest_backup" ]; then
@@ -185,7 +186,8 @@ restore_backup() {
 
     # Restore only the main printer.cfg if it was modified
     local printer_cfg="${KLIPPER_CONFIG}/printer.cfg"
-    if [[ ! "$(basename "$printer_cfg")" == .* ]]; then
+    # Only restore if it's not a timestamped version
+    if [[ ! "$(basename "$printer_cfg")" =~ [0-9]{8}_[0-9]{6}\.cfg$ ]]; then
         local printer_backup=$(ls -t ${BACKUP_DIR}/printer.cfg.backup_* 2>/dev/null | head -n1)
         if [ -n "$printer_backup" ]; then
             echo "Restoring printer.cfg from backup: $printer_backup"
