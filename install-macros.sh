@@ -2,10 +2,32 @@
 # Force script to exit if an error occurs
 set -e
 
+# Script Info
+# Last Updated: 2025-02-19 03:45:43 UTC
+# Author: ss1gohan13
+
 KLIPPER_CONFIG="${HOME}/printer_data/config"
 KLIPPER_SERVICE_NAME=klipper
 BACKUP_DIR="${KLIPPER_CONFIG}/backup"
 CURRENT_DATE=$(date +%Y%m%d_%H%M%S)
+
+# Add macro patterns array with both hyphenated and underscore variations
+MACRO_PATTERNS=(
+    "macros.cfg"
+    "*macro*.cfg"
+    "*-macro*.cfg"
+    "*_macro*.cfg"
+    "macro-*.cfg"
+    "macro_*.cfg"
+    "custom-*.cfg"
+    "custom_*.cfg"
+    "sv08-*.cfg"
+    "sv08_*.cfg"
+    "sovol-*.cfg"
+    "sovol_*.cfg"
+    "printer-*.cfg"
+    "printer_*.cfg"
+)
 
 # Parse command line arguments
 usage() {
@@ -57,12 +79,20 @@ create_backup_dir() {
     fi
 }
 
-# Backup existing macros.cfg if it exists
+# Modified to check for various macro file patterns
 backup_existing_macros() {
-    if [ -f "${KLIPPER_CONFIG}/macros.cfg" ]; then
-        echo "Creating backup of existing macros.cfg..."
-        cp "${KLIPPER_CONFIG}/macros.cfg" "${BACKUP_DIR}/macros.cfg.backup_${CURRENT_DATE}"
-        echo "Backup created at ${BACKUP_DIR}/macros.cfg.backup_${CURRENT_DATE}"
+    local found_macro=0
+    for pattern in "${MACRO_PATTERNS[@]}"; do
+        while IFS= read -r -d $'\0' file; do
+            echo "Creating backup of existing ${file##*/}..."
+            cp "$file" "${BACKUP_DIR}/${file##*/}.backup_${CURRENT_DATE}"
+            echo "Backup created at ${BACKUP_DIR}/${file##*/}.backup_${CURRENT_DATE}"
+            found_macro=1
+        done < <(find "$KLIPPER_CONFIG" -maxdepth 1 -type f -name "$pattern" -print0 2>/dev/null)
+    done
+
+    if [ $found_macro -eq 1 ]; then
+        echo "All existing macro configurations have been backed up."
     fi
 }
 
@@ -73,9 +103,9 @@ install_macros() {
     echo "[OK]"
 }
 
-# Restore backup if it exists
+# Modified to restore latest backup of any macro variant
 restore_backup() {
-    local latest_backup=$(ls -t ${BACKUP_DIR}/macros.cfg.backup_* 2>/dev/null | head -n1)
+    local latest_backup=$(ls -t ${BACKUP_DIR}/*macro*.cfg.backup_* 2>/dev/null | head -n1)
     if [ -n "$latest_backup" ]; then
         echo "Restoring from backup: $latest_backup"
         cp "$latest_backup" "${KLIPPER_CONFIG}/macros.cfg"
