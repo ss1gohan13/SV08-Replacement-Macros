@@ -3,7 +3,7 @@
 set -e
 
 # Script Info
-# Last Updated: 2025-02-19 14:42:26 UTC
+# Last Updated: 2025-02-19 16:19:46 UTC
 # Author: ss1gohan13
 
 KLIPPER_CONFIG="${HOME}/printer_data/config"
@@ -241,6 +241,23 @@ if [ ! $UNINSTALL ]; then
         echo ""
         echo "Print_Start macro has been installed!"
         echo "Please visit https://github.com/ss1gohan13/A-better-print_start-macro-SV08"
+        echo "for instructions on configuring your slicer settings."
+    fi
+
+    # Prompt for End Print macro installation
+    echo ""
+    echo "Would you like to install A Better End Print Macro?"
+    echo "Note: This requires additional changes to your slicer settings."
+    echo "More information can be found at: https://github.com/ss1gohan13/A-Better-End-Print-Macro"
+    read -p "Install End Print macro? (y/N): " install_end_print
+    
+    if [[ "$install_end_print" =~ ^[Yy]$ ]]; then
+        echo "Installing A Better End Print Macro..."
+        cd ~
+        curl -sSL https://raw.githubusercontent.com/ss1gohan13/A-Better-End-Print-Macro/main/direct_install.sh | bash
+        echo ""
+        echo "End Print macro has been installed!"
+        echo "Please visit https://github.com/ss1gohan13/A-Better-End-Print-Macro"
         echo "for instructions on configuring your slicer settings."
     fi
 else
