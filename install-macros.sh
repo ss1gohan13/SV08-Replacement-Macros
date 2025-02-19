@@ -3,7 +3,7 @@
 set -e
 
 # Script Info
-# Last Updated: 2025-02-19 03:57:59 UTC
+# Last Updated: 2025-02-19 04:08:36 UTC
 # Author: ss1gohan13
 
 KLIPPER_CONFIG="${HOME}/printer_data/config"
@@ -103,19 +103,18 @@ install_macros() {
     echo "[OK]"
 }
 
-# Enhanced check and update printer.cfg to include macros
+# Check and update printer.cfg to include macros
 check_and_update_printer_cfg() {
     local printer_cfg="${KLIPPER_CONFIG}/printer.cfg"
     if [ ! -f "$printer_cfg" ]; then
         echo "[WARNING] printer.cfg not found at ${printer_cfg}"
         echo "You will need to manually add: [include macros.cfg] to your printer.cfg"
         return
-    }
+    fi
 
-    # More comprehensive check for existing includes
+    # Check for various possible include formats
     local include_found=0
     
-    # Check for various possible include formats
     while IFS= read -r line; do
         # Skip empty lines
         [ -z "$line" ] && continue
@@ -134,7 +133,7 @@ check_and_update_printer_cfg() {
         
         # Check for various include formats
         if [[ "$line_lower" == "[include macros.cfg]" ]] || \
-           [[ "$line_lower" == "[include "./macros.cfg"]" ]] || \
+           [[ "$line_lower" == "[include \"./macros.cfg\"]" ]] || \
            [[ "$line_lower" == "[include \"macros.cfg\"]" ]] || \
            [[ "$line_lower" == "[include 'macros.cfg']" ]]; then
             include_found=1
