@@ -3,7 +3,7 @@
 set -e
 
 # Script Info
-# Last Updated: 2025-02-19 04:26:17 UTC
+# Last Updated: 2025-02-19 04:31:53 UTC
 # Author: ss1gohan13
 
 KLIPPER_CONFIG="${HOME}/printer_data/config"
@@ -114,11 +114,9 @@ check_and_update_printer_cfg() {
         return
     fi
 
-    # Check if this is a timestamped backup version
-    if [[ "$(basename "$printer_cfg")" =~ [0-9]{8}_[0-9]{6}\.cfg$ ]]; then
-        echo "[WARNING] Detected timestamped printer config, skipping modification"
-        return
-    fi
+    # Always create a backup of the main printer.cfg first
+    cp "$printer_cfg" "${BACKUP_DIR}/printer.cfg.backup_${CURRENT_DATE}"
+    echo "Created backup of printer.cfg at ${BACKUP_DIR}/printer.cfg.backup_${CURRENT_DATE}"
 
     # Check for various possible include formats
     local include_found=0
@@ -152,9 +150,6 @@ check_and_update_printer_cfg() {
     done < "$printer_cfg"
 
     if [ $include_found -eq 0 ]; then
-        cp "$printer_cfg" "${BACKUP_DIR}/printer.cfg.backup_${CURRENT_DATE}"
-        echo "Created backup of printer.cfg at ${BACKUP_DIR}/printer.cfg.backup_${CURRENT_DATE}"
-
         # Add include line to printer.cfg
         echo "" >> "$printer_cfg"  # Add blank line for readability
         echo "[include macros.cfg]" >> "$printer_cfg"
