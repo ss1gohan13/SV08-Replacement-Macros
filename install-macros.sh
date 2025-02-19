@@ -3,7 +3,7 @@
 set -e
 
 # Script Info
-# Last Updated: 2025-02-19 04:31:53 UTC
+# Last Updated: 2025-02-19 14:42:26 UTC
 # Author: ss1gohan13
 
 KLIPPER_CONFIG="${HOME}/printer_data/config"
@@ -227,6 +227,22 @@ if [ ! $UNINSTALL ]; then
     check_and_update_printer_cfg
     start_klipper
     echo "Installation complete! Please check your printer's web interface to verify the changes."
+
+    # Prompt for Print_Start macro installation
+    echo ""
+    echo "Would you like to install A Better Print_Start Macro?"
+    echo "Note: This requires additional changes to your slicer settings."
+    echo "More information can be found at: https://github.com/ss1gohan13/A-better-print_start-macro-SV08"
+    read -p "Install Print_Start macro? (y/N): " install_print_start
+    
+    if [[ "$install_print_start" =~ ^[Yy]$ ]]; then
+        echo "Installing A Better Print_Start Macro..."
+        curl -sSL https://raw.githubusercontent.com/ss1gohan13/A-better-print_start-macro-SV08/main/install_start_print.sh | bash
+        echo ""
+        echo "Print_Start macro has been installed!"
+        echo "Please visit https://github.com/ss1gohan13/A-better-print_start-macro-SV08"
+        echo "for instructions on configuring your slicer settings."
+    fi
 else
     echo "Uninstalling SV08 Replacement Macros..."
     restore_backup
