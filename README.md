@@ -3,7 +3,8 @@
 <details>
 <summary>How to install the macros</summary>
 
-```cd ~
+```
+cd ~
 git clone https://github.com/ss1gohan13/SV08-Replacement-Macros.git
 cd SV08-Replacement-Macros
 ./install-macros.sh
@@ -22,7 +23,7 @@ This will:
 <details>
 <summary>How to uninstall the macros</summary>
 
-```cd ~/SV08-Replacement-Macros
+```
 cd ~/SV08-Replacement-Macros
 ./install-macros.sh -u
 
