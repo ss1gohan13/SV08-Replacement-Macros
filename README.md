@@ -17,6 +17,7 @@ This will:
 3) Backup the existing macro to `~/printer_data/config/backup/`
 4) Install the replacement macro
 5) Restart the klipper service
+6) OPTIONAL: Ask to install a replacement start print macro
 
 </details>
 
