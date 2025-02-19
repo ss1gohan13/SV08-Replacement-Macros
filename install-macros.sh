@@ -69,123 +69,8 @@ backup_existing_macros() {
 # Install new macros.cfg
 install_macros() {
     echo -n "Installing new macros.cfg... "
-    # Create temporary file
-    TEMP_FILE=$(mktemp)
-    
-    # Add installation metadata as a comment
-    echo "# Installed by: $CURRENT_USER" > "$TEMP_FILE"
-    echo "# Installation Date: $INSTALL_DATE UTC" >> "$TEMP_FILE"
-    echo "# Version: 1.0.0" >> "$TEMP_FILE"
-    echo "" >> "$TEMP_FILE"
-    
-    # Add the PRINT_START macro
-    cat >> "$TEMP_FILE" << 'EOF'
-[gcode_macro PRINT_START]
-gcode:
-    {% set BED_TEMP = params.BED_TEMP|default(60)|float %}
-    {% set EXTRUDER_TEMP = params.EXTRUDER_TEMP|default(200)|float %}
-    {% set CHAMBER_TEMP = params.CHAMBER_TEMP|default(0)|float %}
-    {% set Z_SIZE = params.Z_SIZE|default(0)|float %}
-    {% set PROBE = params.PROBE|default(true)|lower %}
-
-    # Reset the G-Code reference position to the current position
-    G92.1
-
-    # Clear any paused states in case the printer is in one
-    CLEAR_PAUSE
-
-    # Ensure all axes are homed
-    G28
-
-    # If probe is requested and not triggered, perform bed mesh calibration
-    {% if PROBE == 'true' %}
-        BED_MESH_CALIBRATE
-    {% endif %}
-
-    # Start bed heating
-    M140 S{BED_TEMP}
-
-    # Wait for bed to reach 90% of target temperature
-    M190 S{BED_TEMP * 0.9}
-
-    # Move to Z50 for nozzle heating
-    G1 Z50 F240
-
-    # Heat nozzle to target temperature
-    M104 S{EXTRUDER_TEMP}
-
-    # Wait for nozzle to reach temperature
-    M109 S{EXTRUDER_TEMP}
-
-    # Wait for bed to reach final target temperature
-    M190 S{BED_TEMP}
-
-    # If chamber temperature is specified, wait for it
-    {% if CHAMBER_TEMP > 0 %}
-        SET_CHAMBER_TEMP T={CHAMBER_TEMP}
-        WAIT_CHAMBER_TEMP T={CHAMBER_TEMP} MARGIN=2
-    {% endif %}
-
-    # Home Z again to account for any thermal expansion
-    G28 Z
-
-    # Reset the G-Code reference position to the current position
-    G92.1
-
-    # Reset extruder
-    G92 E0
-
-    # Move Z to size if specified
-    {% if Z_SIZE > 0 %}
-        G1 Z{Z_SIZE} F240
-    {% endif %}
-
-    # Prime line
-    G1 Y5 F3000                  ; go to Y5
-    G1 Z0.3 F240                 ; go to Z0.3
-    G1 X40 E25 F1500.0          ; intro line 1
-    G1 X80 E25 F1500.0          ; intro line 2
-    G92 E0                       ; reset extruder
-    G1 Z2.0 F3000               ; move Z up
-EOF
-
-    # Copy the temporary file to final location
-    cp "$TEMP_FILE" "${KLIPPER_CONFIG}/macros.cfg"
-    rm "$TEMP_FILE"
+    cp "${SRCDIR}/printer_data/config/macros.cfg" "${KLIPPER_CONFIG}/macros.cfg"
     echo "[OK]"
-}
-
-# Check if include exists in printer.cfg
-check_include() {
-    if [ -f "${KLIPPER_CONFIG}/printer.cfg" ]; then
-        if grep -q "^[include macros.cfg]" "${KLIPPER_CONFIG}/printer.cfg" || \
-           grep -q "^\[include macros.cfg\]" "${KLIPPER_CONFIG}/printer.cfg"; then
-            echo "Include statement for macros.cfg already exists in printer.cfg"
-            return 0
-        fi
-        return 1
-    else
-        echo "[ERROR] printer.cfg not found at ${KLIPPER_CONFIG}/printer.cfg"
-        exit -1
-    fi
-}
-
-# Add include statement to printer.cfg
-add_include() {
-    if ! check_include; then
-        echo "Adding include statement to printer.cfg..."
-        echo -e "\n[include macros.cfg]" >> "${KLIPPER_CONFIG}/printer.cfg"
-        echo "[OK] Added include statement"
-    fi
-}
-
-# Remove include statement from printer.cfg
-remove_include() {
-    if [ -f "${KLIPPER_CONFIG}/printer.cfg" ]; then
-        echo "Removing include statement from printer.cfg..."
-        sed -i '/^\[include macros\.cfg\]/d' "${KLIPPER_CONFIG}/printer.cfg"
-        echo "[OK] Removed include statement"
-    fi
 }
 
 # Restore backup if it exists
@@ -233,16 +118,14 @@ create_backup_dir
 stop_klipper
 
 if [ ! $UNINSTALL ]; then
-    echo "Installing Enhanced Print Start Macro..."
+    echo "Installing SV08 Replacement Macros..."
     backup_existing_macros
     install_macros
-    add_include
     start_klipper
     echo "Installation complete! Please check your printer's web interface to verify the changes."
 else
-    echo "Uninstalling Enhanced Print Start Macro..."
+    echo "Uninstalling SV08 Replacement Macros..."
     restore_backup
-    remove_include
     start_klipper
     echo "Uninstallation complete! Original configuration has been restored."
 fi
