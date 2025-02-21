@@ -51,7 +51,7 @@ This will:
 - _resume_wait removed
 - ALL_FAN_OFF is no longer needed but kept
 - bed_mesh_init - removed - not needed
-- BED_MESH_CALIBRATE removed - this is a klipper standard - BED_MESH_CALIBRATE ADAPTIVE=1 is the new standard and integrated with replacement [start print macro](https://github.com/ss1gohan13/A-be[...]
+- BED_MESH_CALIBRATE removed - this is a klipper standard - BED_MESH_CALIBRATE ADAPTIVE=1 is the new standard and integrated with replacement [start print macro](https://github.com/ss1gohan13/A-better-print_start-macro-SV08)
 - CANCEL_PRINT replaced - add fluidd or mainsail config, and customize, to specific requested settings
 - CLEAN_NOZZLE is updated/shortened - this is meant to work with the stock nozzle scrubber setup
 - END_PRINT replaced - see the [end print macro](https://github.com/ss1gohan13/A-Better-End-Print-Macro)
