@@ -120,7 +120,8 @@ check_and_update_printer_cfg() {
 
     # Check for various possible include formats
     local include_found=0
-    
+    local new_printer_cfg="${BACKUP_DIR}/printer.cfg.new_${CURRENT_DATE}"
+
     while IFS= read -r line; do
         # Skip empty lines
         [ -z "$line" ] && continue
@@ -145,23 +146,23 @@ check_and_update_printer_cfg() {
             include_found=1
             echo "Found existing include for macros.cfg in printer.cfg:"
             echo "  $line"
-            break
+            continue
         fi
+
+        # Write the line to the new printer.cfg
+        echo "$line" >> "$new_printer_cfg"
     done < "$printer_cfg"
 
     if [ $include_found -eq 0 ]; then
-        # Add include line to printer.cfg
-        echo "" >> "$printer_cfg"  # Add blank line for readability
-        echo "[include macros.cfg]" >> "$printer_cfg"
-        echo "Added [include macros.cfg] to printer.cfg"
-        
-        # Verify the addition
-        if grep -q "^\[include macros\.cfg\]" "$printer_cfg"; then
-            echo "Successfully verified the include line was added"
-        else
-            echo "[WARNING] Failed to verify the include line. Please check printer.cfg manually"
-        fi
+        # Add include line to the top of the new printer.cfg
+        echo "[include macros.cfg]" > "$new_printer_cfg"
+        cat "$printer_cfg" >> "$new_printer_cfg"
+        echo "Added [include macros.cfg] to the top of printer.cfg"
     fi
+
+    # Replace the original printer.cfg with the new one
+    mv "$new_printer_cfg" "$printer_cfg"
+    echo "Updated printer.cfg to include macros.cfg"
 }
 
 # Modified to restore latest backup of any macro variant
