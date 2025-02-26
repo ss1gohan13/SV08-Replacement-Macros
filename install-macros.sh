@@ -139,13 +139,8 @@ check_and_update_printer_cfg() {
         line_lower=$(echo "$line" | tr '[:upper:]' '[:lower:]')
         
         # Check for various include formats
-        if [[ "$line_lower" == "[include macros.cfg]" ]] || \
-           [[ "$line_lower" == "[include \"./macros.cfg\"]" ]] || \
-           [[ "$line_lower" == "[include \"macros.cfg\"]" ]] || \
-           [[ "$line_lower" == "[include 'macros.cfg']" ]]; then
-            include_found=1
-            echo "Found existing include for macros.cfg in printer.cfg:"
-            echo "  $line"
+        if [[ "$line_lower" == \[include* ]] && [[ "$line_lower" != "[include macros.cfg]" ]]; then
+            echo "Removing old include: $line"
             continue
         fi
 
