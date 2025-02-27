@@ -209,6 +209,21 @@ verify_ready() {
     fi
 }
 
+# Function to install KAMP
+install_kamp() {
+    if [ -d "${KLIPPER_CONFIG}/KAMP" ]; then
+        echo "KAMP is already installed."
+        return
+    fi
+
+    echo "Installing KAMP..."
+    cd
+    git clone https://github.com/kyleisah/Klipper-Adaptive-Meshing-Purging.git
+    ln -s ~/Klipper-Adaptive-Meshing-Purging/Configuration "${KLIPPER_CONFIG}/KAMP"
+    cp ~/Klipper-Adaptive-Meshing-Purging/Configuration/KAMP_Settings.cfg "${KLIPPER_CONFIG}/KAMP_Settings.cfg"
+    echo "KAMP installation complete!"
+}
+
 # Main installation/uninstallation logic
 verify_ready
 check_klipper
@@ -227,17 +242,17 @@ if [ ! $UNINSTALL ]; then
     # Prompt for Print_Start macro installation
     echo ""
     echo "Would you like to install A Better Print_Start Macro?"
-    echo "Note: This requires additional changes to your slicer settings."
+    echo "Note: This will also install KAMP, which needs to be configured per KAMP documentation."
     echo "More information can be found at: https://github.com/ss1gohan13/A-better-print_start-macro-SV08"
-    read -p "Install Print_Start macro? (y/N): " install_print_start
+    read -p "Install Print_Start macro and KAMP? (y/N): " install_print_start
     
     if [[ "$install_print_start" =~ ^[Yy]$ ]]; then
-        echo "Installing A Better Print_Start Macro..."
+        echo "Installing KAMP and A Better Print_Start Macro..."
+        install_kamp # Ensure KAMP is installed before the macro
         curl -sSL https://raw.githubusercontent.com/ss1gohan13/A-better-print_start-macro-SV08/main/install_start_print.sh | bash
         echo ""
-        echo "Print_Start macro has been installed!"
-        echo "Please visit https://github.com/ss1gohan13/A-better-print_start-macro-SV08"
-        echo "for instructions on configuring your slicer settings."
+        echo "Print_Start macro and KAMP have been installed!"
+        echo "Please visit https://github.com/ss1gohan13/A-better-print_start-macro-SV08 for instructions on configuring your slicer settings."
     fi
 
     # Prompt for End Print macro installation
@@ -253,8 +268,7 @@ if [ ! $UNINSTALL ]; then
         curl -sSL https://raw.githubusercontent.com/ss1gohan13/A-Better-End-Print-Macro/main/direct_install.sh | bash
         echo ""
         echo "End Print macro has been installed!"
-        echo "Please visit https://github.com/ss1gohan13/A-Better-End-Print-Macro"
-        echo "for instructions on configuring your slicer settings."
+        echo "Please visit https://github.com/ss1gohan13/A-Better-End-Print-Macro for instructions on configuring your slicer settings."
     fi
 else
     echo "Uninstalling SV08 Replacement Macros..."
