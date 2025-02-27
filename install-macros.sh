@@ -98,8 +98,8 @@ backup_existing_macros() {
 
 # Install new macros.cfg
 install_macros() {
-    echo -n "Installing new macros.cfg... "
-    cp "${SRCDIR}/printer_data/config/macros.cfg" "${KLIPPER_CONFIG}/macros.cfg"
+    echo -n "Downloading and installing new macros.cfg... "
+    curl -o "${KLIPPER_CONFIG}/macros.cfg" "https://raw.githubusercontent.com/ss1gohan13/SV08-Replacement-Macros/main/printer_data/config/macros.cfg"
     echo "[OK]"
 }
 
