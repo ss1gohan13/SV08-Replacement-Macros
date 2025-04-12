@@ -3,7 +3,7 @@
 set -e
 
 # Script Info
-# Last Updated: 2025-04-12 13:25:37 UTC
+# Last Updated: 2025-04-12 13:53:28 UTC
 # Author: ss1gohan13
 
 KLIPPER_CONFIG="${HOME}/printer_data/config"
@@ -152,7 +152,14 @@ check_and_update_printer_cfg() {
         # Convert line to lowercase for case-insensitive comparison
         line_lower=$(echo "$line" | tr '[:upper:]' '[:lower:]')
         
-        # Check for various include formats
+        # Check for macros.cfg include specifically
+        if [[ "$line_lower" == "[include macros.cfg]" ]]; then
+            echo "Found existing [include macros.cfg]"
+            include_found=1
+        fi
+        
+        # Check for other include statements that might be macro-related
+        # Only remove them if they're not the macros.cfg include we want
         if [[ "$line_lower" == \[include* ]] && [[ "$line_lower" != "[include macros.cfg]" ]]; then
             echo "Removing old include: $line"
             continue
@@ -163,15 +170,19 @@ check_and_update_printer_cfg() {
     done < "$printer_cfg"
 
     if [ $include_found -eq 0 ]; then
-        # Add include line to the top of the new printer.cfg
-        echo "[include macros.cfg]" > "$new_printer_cfg"
-        cat "$printer_cfg" >> "$new_printer_cfg"
+        # Add include line to the top of the new printer.cfg only if not found
+        local temp_file="${BACKUP_DIR}/printer.cfg.temp_${CURRENT_DATE}"
+        echo "[include macros.cfg]" > "$temp_file"
+        cat "$new_printer_cfg" >> "$temp_file"
+        mv "$temp_file" "$new_printer_cfg"
         echo "Added [include macros.cfg] to the top of printer.cfg"
+    else
+        echo "Existing [include macros.cfg] found, no need to add another"
     fi
 
     # Replace the original printer.cfg with the new one
     mv "$new_printer_cfg" "$printer_cfg"
-    echo "Updated printer.cfg to include macros.cfg"
+    echo "Updated printer.cfg successfully"
 }
 
 # Modified to restore latest backup of specified macro files
