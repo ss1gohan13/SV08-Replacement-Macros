@@ -3,29 +3,13 @@
 set -e
 
 # Script Info
-# Last Updated: 2025-02-19 16:19:46 UTC
+# Last Updated: 2025-04-12 13:25:37 UTC
 # Author: ss1gohan13
 
 KLIPPER_CONFIG="${HOME}/printer_data/config"
 KLIPPER_SERVICE_NAME=klipper
 BACKUP_DIR="${KLIPPER_CONFIG}/backup"
 CURRENT_DATE=$(date +%Y%m%d_%H%M%S)
-
-# Add macro patterns array with both hyphenated and underscore variations
-MACRO_PATTERNS=(
-    "macros.cfg"
-    "*macro*.cfg"
-    "*-macro*.cfg"
-    "*_macro*.cfg"
-    "macro-*.cfg"
-    "macro_*.cfg"
-    "custom-*.cfg"
-    "custom_*.cfg"
-    "sv08-*.cfg"
-    "sv08_*.cfg"
-    "sovol-*.cfg"
-    "sovol_*.cfg"
-)
 
 # Parse command line arguments
 usage() {
@@ -77,22 +61,52 @@ create_backup_dir() {
     fi
 }
 
-# Modified to check for various macro file patterns
+# Get user input for macro filenames
+get_user_macro_files() {
+    echo "Looking for macro files in $KLIPPER_CONFIG..."
+    echo "Found these potential macro files:"
+    
+    # Find files with names that might be macro files and display them
+    find "$KLIPPER_CONFIG" -maxdepth 1 -type f -name "*.cfg" | sort | while read -r file; do
+        # Skip backup files and timestamp-named files
+        if [[ ! "$(basename "$file")" =~ (backup|[0-9]{8}_[0-9]{6})\.cfg$ ]]; then
+            echo "  - $(basename "$file")"
+        fi
+    done
+    
+    echo ""
+    echo "Please enter the filenames of your macro files (space separated)."
+    echo "Example: macros.cfg sv08_macros.cfg custom_macros.cfg"
+    echo "Press Enter if you have no existing macro files."
+    read -p "> " USER_MACRO_FILES
+    
+    # Convert the input string into an array
+    read -ra MACRO_FILES <<< "$USER_MACRO_FILES"
+    
+    # Add default macros.cfg if empty (for restoration purposes)
+    if [ ${#MACRO_FILES[@]} -eq 0 ]; then
+        MACRO_FILES=("macros.cfg")
+        echo "No files specified. Will use default 'macros.cfg'."
+    fi
+}
+
+# Modified to use user-specified macro files
 backup_existing_macros() {
     local found_macro=0
-    for pattern in "${MACRO_PATTERNS[@]}"; do
-        while IFS= read -r -d $'\0' file; do
-            if [[ ! "$(basename "$file")" =~ [0-9]{8}_[0-9]{6}\.cfg$ ]]; then
-                echo "Creating backup of existing ${file##*/}..."
-                cp "$file" "${BACKUP_DIR}/${file##*/}.backup_${CURRENT_DATE}"
-                echo "Backup created at ${BACKUP_DIR}/${file##*/}.backup_${CURRENT_DATE}"
-                found_macro=1
-            fi
-        done < <(find "$KLIPPER_CONFIG" -maxdepth 1 -type f -name "$pattern" -print0 2>/dev/null)
+    for file_name in "${MACRO_FILES[@]}"; do
+        # Check if file exists before attempting backup
+        if [ -f "${KLIPPER_CONFIG}/${file_name}" ]; then
+            echo "Creating backup of existing ${file_name}..."
+            cp "${KLIPPER_CONFIG}/${file_name}" "${BACKUP_DIR}/${file_name}.backup_${CURRENT_DATE}"
+            echo "Backup created at ${BACKUP_DIR}/${file_name}.backup_${CURRENT_DATE}"
+            found_macro=1
+        fi
     done
 
     if [ $found_macro -eq 1 ]; then
-        echo "All existing macro configurations have been backed up."
+        echo "All specified macro configurations have been backed up."
+    else
+        echo "No existing macro files found to back up."
     fi
 }
 
@@ -160,20 +174,22 @@ check_and_update_printer_cfg() {
     echo "Updated printer.cfg to include macros.cfg"
 }
 
-# Modified to restore latest backup of any macro variant
+# Modified to restore latest backup of specified macro files
 restore_backup() {
-    local latest_backup=$(ls -t ${BACKUP_DIR}/*macro*.cfg.backup_* 2>/dev/null | head -n1)
-    if [ -n "$latest_backup" ]; then
-        echo "Restoring from backup: $latest_backup"
-        cp "$latest_backup" "${KLIPPER_CONFIG}/macros.cfg"
-        echo "[OK]"
-    else
-        echo "No backup found to restore"
-        if [ -f "${KLIPPER_CONFIG}/macros.cfg" ]; then
-            echo "Removing installed macros.cfg"
-            rm "${KLIPPER_CONFIG}/macros.cfg"
+    for file_name in "${MACRO_FILES[@]}"; do
+        local latest_backup=$(ls -t ${BACKUP_DIR}/${file_name}.backup_* 2>/dev/null | head -n1)
+        if [ -n "$latest_backup" ]; then
+            echo "Restoring from backup: $latest_backup"
+            cp "$latest_backup" "${KLIPPER_CONFIG}/${file_name}"
+            echo "[OK]"
+        else
+            echo "No backup found to restore for ${file_name}"
+            if [ -f "${KLIPPER_CONFIG}/${file_name}" ]; then
+                echo "Removing installed ${file_name}"
+                rm "${KLIPPER_CONFIG}/${file_name}"
+            fi
         fi
-    fi
+    done
 
     # Restore only the main printer.cfg if it was modified
     local printer_cfg="${KLIPPER_CONFIG}/printer.cfg"
@@ -230,6 +246,7 @@ check_klipper
 check_folders
 create_backup_dir
 stop_klipper
+get_user_macro_files
 
 if [ ! $UNINSTALL ]; then
     echo "Installing SV08 Replacement Macros..."
