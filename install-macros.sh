@@ -3,7 +3,7 @@
 set -e
 
 # Script Info
-# Last Updated: 2025-04-12 13:53:28 UTC
+# Last Updated: 2025-04-12 14:05:44 UTC
 # Author: ss1gohan13
 
 KLIPPER_CONFIG="${HOME}/printer_data/config"
@@ -110,21 +110,27 @@ backup_existing_macros() {
     fi
 }
 
-# Install new macros.cfg
+# Install new macros.cfg to the user-specified primary macro file
 install_macros() {
-    echo -n "Downloading and installing new macros.cfg... "
-    curl -o "${KLIPPER_CONFIG}/macros.cfg" "https://raw.githubusercontent.com/ss1gohan13/SV08-Replacement-Macros/main/printer_data/config/macros.cfg"
+    # Use the first macro file as the primary one
+    local primary_macro="${MACRO_FILES[0]}"
+    
+    echo -n "Downloading and installing new macros to ${primary_macro}... "
+    curl -o "${KLIPPER_CONFIG}/${primary_macro}" "https://raw.githubusercontent.com/ss1gohan13/SV08-Replacement-Macros/main/printer_data/config/macros.cfg"
     echo "[OK]"
 }
 
-# Check and update printer.cfg to include macros
+# Check and update printer.cfg to include user's primary macro file
+# Modified to preserve all whitespace and line formatting
 check_and_update_printer_cfg() {
     local printer_cfg="${KLIPPER_CONFIG}/printer.cfg"
+    # Use the first macro file as the primary one
+    local primary_macro="${MACRO_FILES[0]}"
     
     # Check specifically for the main printer.cfg
     if [ ! -f "$printer_cfg" ]; then
         echo "[WARNING] printer.cfg not found at ${printer_cfg}"
-        echo "You will need to manually add: [include macros.cfg] to your printer.cfg"
+        echo "You will need to manually add: [include ${primary_macro}] to your printer.cfg"
         return
     fi
 
@@ -132,52 +138,49 @@ check_and_update_printer_cfg() {
     cp "$printer_cfg" "${BACKUP_DIR}/printer.cfg.backup_${CURRENT_DATE}"
     echo "Created backup of printer.cfg at ${BACKUP_DIR}/printer.cfg.backup_${CURRENT_DATE}"
 
-    # Check for various possible include formats
+    # Check for includes and preserve formatting
     local include_found=0
     local new_printer_cfg="${BACKUP_DIR}/printer.cfg.new_${CURRENT_DATE}"
+    > "$new_printer_cfg"  # Create empty file
+    
+    # Create an array of include statements to check
+    local include_patterns=()
+    for file in "${MACRO_FILES[@]}"; do
+        include_patterns+=("[include ${file}]")
+    done
 
-    while IFS= read -r line; do
-        # Skip empty lines
-        [ -z "$line" ] && continue
-        
-        # Remove leading/trailing whitespace
-        line=$(echo "$line" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
-        
-        # Skip if line is empty after trimming
-        [ -z "$line" ] && continue
-        
-        # Skip commented lines
-        [[ $line == \#* ]] && continue
-        
-        # Convert line to lowercase for case-insensitive comparison
-        line_lower=$(echo "$line" | tr '[:upper:]' '[:lower:]')
-        
-        # Check for macros.cfg include specifically
-        if [[ "$line_lower" == "[include macros.cfg]" ]]; then
-            echo "Found existing [include macros.cfg]"
-            include_found=1
+    # Process file line by line but preserve all whitespace
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        # Handle actual line processing for includes
+        if [[ -n "$line" && "$line" != *[[:space:]]* && "$line" != \#* ]]; then
+            # Line has content and isn't just whitespace or a comment
+            line_lower=$(echo "$line" | tr '[:upper:]' '[:lower:]')
+            
+            # Check if this line is one of our macro include statements
+            for include_pattern in "${include_patterns[@]}"; do
+                include_lower=$(echo "$include_pattern" | tr '[:upper:]' '[:lower:]')
+                if [[ "$line_lower" == "$include_lower" ]]; then
+                    echo "Found existing include: $line"
+                    include_found=1
+                    break
+                fi
+            done
         fi
         
-        # Check for other include statements that might be macro-related
-        # Only remove them if they're not the macros.cfg include we want
-        if [[ "$line_lower" == \[include* ]] && [[ "$line_lower" != "[include macros.cfg]" ]]; then
-            echo "Removing old include: $line"
-            continue
-        fi
-
-        # Write the line to the new printer.cfg
+        # Write every line to the new file, preserving all content
         echo "$line" >> "$new_printer_cfg"
     done < "$printer_cfg"
 
     if [ $include_found -eq 0 ]; then
         # Add include line to the top of the new printer.cfg only if not found
         local temp_file="${BACKUP_DIR}/printer.cfg.temp_${CURRENT_DATE}"
-        echo "[include macros.cfg]" > "$temp_file"
+        echo "[include ${primary_macro}]" > "$temp_file"
+        echo "" >> "$temp_file"  # Add a blank line for better formatting
         cat "$new_printer_cfg" >> "$temp_file"
         mv "$temp_file" "$new_printer_cfg"
-        echo "Added [include macros.cfg] to the top of printer.cfg"
+        echo "Added [include ${primary_macro}] to the top of printer.cfg"
     else
-        echo "Existing [include macros.cfg] found, no need to add another"
+        echo "Existing macro include found, no need to add another"
     fi
 
     # Replace the original printer.cfg with the new one
