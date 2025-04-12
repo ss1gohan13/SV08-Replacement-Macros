@@ -3,7 +3,7 @@
 set -e
 
 # Script Info
-# Last Updated: 2025-04-12 14:05:44 UTC
+# Last Updated: 2025-04-12 15:32:32 UTC
 # Author: ss1gohan13
 
 KLIPPER_CONFIG="${HOME}/printer_data/config"
@@ -61,7 +61,7 @@ create_backup_dir() {
     fi
 }
 
-# Get user input for macro filenames
+# Modified to properly handle user input for macro files
 get_user_macro_files() {
     echo "Looking for macro files in $KLIPPER_CONFIG..."
     echo "Found these potential macro files:"
@@ -80,28 +80,52 @@ get_user_macro_files() {
     echo "Press Enter if you have no existing macro files."
     read -p "> " USER_MACRO_FILES
     
-    # Convert the input string into an array
-    read -ra MACRO_FILES <<< "$USER_MACRO_FILES"
+    # Always reset to default for reliable downloading
+    MACRO_FILES=("macros.cfg")
     
-    # Add default macros.cfg if empty (for restoration purposes)
-    if [ ${#MACRO_FILES[@]} -eq 0 ]; then
-        MACRO_FILES=("macros.cfg")
+    if [ -n "$USER_MACRO_FILES" ]; then
+        # User entered something - this is just for backups
+        echo "Will back up the following files: $USER_MACRO_FILES"
+        read -ra USER_FILES <<< "$USER_MACRO_FILES"
+        
+        # Backup the files the user mentioned, but always use macros.cfg as the target
+        for file_name in "${USER_FILES[@]}"; do
+            if [ -f "${KLIPPER_CONFIG}/${file_name}" ]; then
+                echo "Will back up existing ${file_name}"
+                # Add to backup list, but don't change the main target file
+                BACKUP_FILES+=("$file_name")
+            fi
+        done
+    else
         echo "No files specified. Will use default 'macros.cfg'."
     fi
+    
+    echo "Will download new macros to: macros.cfg"
 }
 
-# Modified to use user-specified macro files
+# Modified to use both specified user files and default macros.cfg
 backup_existing_macros() {
     local found_macro=0
-    for file_name in "${MACRO_FILES[@]}"; do
-        # Check if file exists before attempting backup
-        if [ -f "${KLIPPER_CONFIG}/${file_name}" ]; then
-            echo "Creating backup of existing ${file_name}..."
-            cp "${KLIPPER_CONFIG}/${file_name}" "${BACKUP_DIR}/${file_name}.backup_${CURRENT_DATE}"
-            echo "Backup created at ${BACKUP_DIR}/${file_name}.backup_${CURRENT_DATE}"
-            found_macro=1
-        fi
-    done
+    
+    # First check if macros.cfg exists and back it up
+    if [ -f "${KLIPPER_CONFIG}/macros.cfg" ]; then
+        echo "Creating backup of existing macros.cfg..."
+        cp "${KLIPPER_CONFIG}/macros.cfg" "${BACKUP_DIR}/macros.cfg.backup_${CURRENT_DATE}"
+        echo "Backup created at ${BACKUP_DIR}/macros.cfg.backup_${CURRENT_DATE}"
+        found_macro=1
+    fi
+    
+    # Also back up any additional files specified by the user
+    if [ -n "${BACKUP_FILES}" ]; then
+        for file_name in "${BACKUP_FILES[@]}"; do
+            if [ -f "${KLIPPER_CONFIG}/${file_name}" ] && [ "$file_name" != "macros.cfg" ]; then
+                echo "Creating backup of existing ${file_name}..."
+                cp "${KLIPPER_CONFIG}/${file_name}" "${BACKUP_DIR}/${file_name}.backup_${CURRENT_DATE}"
+                echo "Backup created at ${BACKUP_DIR}/${file_name}.backup_${CURRENT_DATE}"
+                found_macro=1
+            fi
+        done
+    fi
 
     if [ $found_macro -eq 1 ]; then
         echo "All specified macro configurations have been backed up."
@@ -110,100 +134,97 @@ backup_existing_macros() {
     fi
 }
 
-# Install new macros.cfg to the user-specified primary macro file
+# Using the exact curl command that works - always to macros.cfg
 install_macros() {
-    # Use the first macro file as the primary one
-    local primary_macro="${MACRO_FILES[0]}"
+    echo "Downloading and installing new macros to macros.cfg..."
     
-    echo -n "Downloading and installing new macros to ${primary_macro}... "
-    curl -o "${KLIPPER_CONFIG}/${primary_macro}" "https://raw.githubusercontent.com/ss1gohan13/SV08-Replacement-Macros/main/printer_data/config/macros.cfg"
-    echo "[OK]"
+    # Always download to macros.cfg regardless of what the user entered
+    curl -L https://raw.githubusercontent.com/ss1gohan13/SV08-Replacement-Macros/main/printer_data/config/macros.cfg -o "${KLIPPER_CONFIG}/macros.cfg"
+    
+    # Verify download was successful
+    if [ -s "${KLIPPER_CONFIG}/macros.cfg" ]; then
+        echo "[OK] Macros file downloaded successfully"
+        echo "First few lines of downloaded file:"
+        head -n 3 "${KLIPPER_CONFIG}/macros.cfg"
+    else
+        echo "[ERROR] Failed to download macros file. Please check your internet connection."
+        exit 1
+    fi
 }
 
-# Check and update printer.cfg to include user's primary macro file
-# Modified to preserve all whitespace and line formatting
+# Completely rewritten function to handle printer.cfg properly
 check_and_update_printer_cfg() {
     local printer_cfg="${KLIPPER_CONFIG}/printer.cfg"
-    # Use the first macro file as the primary one
-    local primary_macro="${MACRO_FILES[0]}"
     
     # Check specifically for the main printer.cfg
     if [ ! -f "$printer_cfg" ]; then
         echo "[WARNING] printer.cfg not found at ${printer_cfg}"
-        echo "You will need to manually add: [include ${primary_macro}] to your printer.cfg"
+        echo "You will need to manually add: [include macros.cfg] to your printer.cfg"
         return
     fi
 
     # Always create a backup of the main printer.cfg first
     cp "$printer_cfg" "${BACKUP_DIR}/printer.cfg.backup_${CURRENT_DATE}"
     echo "Created backup of printer.cfg at ${BACKUP_DIR}/printer.cfg.backup_${CURRENT_DATE}"
-
-    # Check for includes and preserve formatting
-    local include_found=0
-    local new_printer_cfg="${BACKUP_DIR}/printer.cfg.new_${CURRENT_DATE}"
-    > "$new_printer_cfg"  # Create empty file
     
-    # Create an array of include statements to check
-    local include_patterns=()
-    for file in "${MACRO_FILES[@]}"; do
-        include_patterns+=("[include ${file}]")
-    done
-
-    # Process file line by line but preserve all whitespace
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        # Handle actual line processing for includes
-        if [[ -n "$line" && "$line" != *[[:space:]]* && "$line" != \#* ]]; then
-            # Line has content and isn't just whitespace or a comment
-            line_lower=$(echo "$line" | tr '[:upper:]' '[:lower:]')
-            
-            # Check if this line is one of our macro include statements
-            for include_pattern in "${include_patterns[@]}"; do
-                include_lower=$(echo "$include_pattern" | tr '[:upper:]' '[:lower:]')
-                if [[ "$line_lower" == "$include_lower" ]]; then
-                    echo "Found existing include: $line"
-                    include_found=1
-                    break
-                fi
-            done
-        fi
-        
-        # Write every line to the new file, preserving all content
-        echo "$line" >> "$new_printer_cfg"
-    done < "$printer_cfg"
-
-    if [ $include_found -eq 0 ]; then
-        # Add include line to the top of the new printer.cfg only if not found
-        local temp_file="${BACKUP_DIR}/printer.cfg.temp_${CURRENT_DATE}"
-        echo "[include ${primary_macro}]" > "$temp_file"
-        echo "" >> "$temp_file"  # Add a blank line for better formatting
-        cat "$new_printer_cfg" >> "$temp_file"
-        mv "$temp_file" "$new_printer_cfg"
-        echo "Added [include ${primary_macro}] to the top of printer.cfg"
+    # Use sed for direct file manipulation
+    # First make a working copy
+    cp "$printer_cfg" "${BACKUP_DIR}/printer.cfg.working_${CURRENT_DATE}"
+    local working_cfg="${BACKUP_DIR}/printer.cfg.working_${CURRENT_DATE}"
+    
+    echo "Processing printer.cfg file..."
+    
+    # 1. Comment out existing lines with [include Macro.cfg]
+    sed -i 's/^\[include Macro\.cfg\]/# [include Macro.cfg]/' "$working_cfg"
+    
+    # 2. Look for existing [include macros.cfg] 
+    if grep -q '^\[include macros\.cfg\]' "$working_cfg"; then
+        echo "Found existing [include macros.cfg]. No need to add another."
     else
-        echo "Existing macro include found, no need to add another"
+        # 3. Add [include macros.cfg] at the top of the file
+        sed -i '1i[include macros.cfg]\n' "$working_cfg"
+        echo "Added [include macros.cfg] to the top of printer.cfg"
     fi
-
-    # Replace the original printer.cfg with the new one
-    mv "$new_printer_cfg" "$printer_cfg"
+    
+    # 4. Make sure we don't have any commented out [include macros.cfg] lines at the bottom
+    # This is to fix the fourth bug where a commented include was appearing at the bottom
+    sed -i 's/^# \[include macros\.cfg\]//' "$working_cfg"
+    
+    # 5. Replace the original file with our modified version
+    mv "$working_cfg" "$printer_cfg"
+    
     echo "Updated printer.cfg successfully"
 }
 
 # Modified to restore latest backup of specified macro files
 restore_backup() {
-    for file_name in "${MACRO_FILES[@]}"; do
-        local latest_backup=$(ls -t ${BACKUP_DIR}/${file_name}.backup_* 2>/dev/null | head -n1)
-        if [ -n "$latest_backup" ]; then
-            echo "Restoring from backup: $latest_backup"
-            cp "$latest_backup" "${KLIPPER_CONFIG}/${file_name}"
-            echo "[OK]"
-        else
-            echo "No backup found to restore for ${file_name}"
-            if [ -f "${KLIPPER_CONFIG}/${file_name}" ]; then
-                echo "Removing installed ${file_name}"
-                rm "${KLIPPER_CONFIG}/${file_name}"
-            fi
+    # Always try to restore macros.cfg
+    local latest_macros_backup=$(ls -t ${BACKUP_DIR}/macros.cfg.backup_* 2>/dev/null | head -n1)
+    if [ -n "$latest_macros_backup" ]; then
+        echo "Restoring from backup: $latest_macros_backup"
+        cp "$latest_macros_backup" "${KLIPPER_CONFIG}/macros.cfg"
+        echo "[OK]"
+    else
+        echo "No backup found for macros.cfg"
+        if [ -f "${KLIPPER_CONFIG}/macros.cfg" ]; then
+            echo "Removing installed macros.cfg"
+            rm "${KLIPPER_CONFIG}/macros.cfg"
         fi
-    done
+    fi
+    
+    # Also restore any additional files specified by the user
+    if [ -n "${BACKUP_FILES}" ]; then
+        for file_name in "${BACKUP_FILES[@]}"; do
+            if [ "$file_name" != "macros.cfg" ]; then
+                local latest_backup=$(ls -t ${BACKUP_DIR}/${file_name}.backup_* 2>/dev/null | head -n1)
+                if [ -n "$latest_backup" ]; then
+                    echo "Restoring from backup: $latest_backup"
+                    cp "$latest_backup" "${KLIPPER_CONFIG}/${file_name}"
+                    echo "[OK]"
+                fi
+            fi
+        done
+    fi
 
     # Restore only the main printer.cfg if it was modified
     local printer_cfg="${KLIPPER_CONFIG}/printer.cfg"
@@ -253,6 +274,9 @@ install_kamp() {
     cp ~/Klipper-Adaptive-Meshing-Purging/Configuration/KAMP_Settings.cfg "${KLIPPER_CONFIG}/KAMP_Settings.cfg"
     echo "KAMP installation complete!"
 }
+
+# Declare global array for backup files
+declare -a BACKUP_FILES
 
 # Main installation/uninstallation logic
 verify_ready
