@@ -3,7 +3,7 @@
 set -e
 
 # Script Info
-# Last Updated: 2025-04-12 15:32:32 UTC
+# Last Updated: 2025-04-27 18:52:18 UTC
 # Author: ss1gohan13
 
 KLIPPER_CONFIG="${HOME}/printer_data/config"
@@ -196,6 +196,114 @@ check_and_update_printer_cfg() {
     echo "Updated printer.cfg successfully"
 }
 
+# Function to install web interface configuration
+install_web_interface_config() {
+    local printer_cfg="${KLIPPER_CONFIG}/printer.cfg"
+    
+    # Check if printer.cfg exists
+    if [ ! -f "$printer_cfg" ]; then
+        echo "[WARNING] printer.cfg not found at ${printer_cfg}"
+        echo "You will need to manually add web interface configuration"
+        return
+    fi
+
+    # Prompt user to select web interface
+    echo ""
+    echo "What web interface are you using?"
+    echo "1) Fluidd"
+    echo "2) Mainsail"
+    read -p "Select an option (1/2): " web_interface_choice
+    
+    # Set the include directive based on user choice
+    local include_directive=""
+    case $web_interface_choice in
+        1)
+            include_directive="[include fluidd.cfg]"
+            echo "You selected Fluidd"
+            ;;
+        2)
+            include_directive="[include mainsail.cfg]"
+            echo "You selected Mainsail"
+            ;;
+        *)
+            echo "Invalid selection. Skipping web interface configuration."
+            return
+            ;;
+    esac
+    
+    # Extract the filename from the include directive for string manipulation
+    local config_file=$(echo "$include_directive" | sed -n 's/\[include \(.*\)\]/\1/p')
+    
+    # Create a working copy
+    cp "$printer_cfg" "${BACKUP_DIR}/printer.cfg.webinterface_${CURRENT_DATE}"
+    local working_cfg="${BACKUP_DIR}/printer.cfg.webinterface_${CURRENT_DATE}"
+    
+    echo "Processing printer.cfg for web interface configuration..."
+    
+    # Check if the include directive already exists
+    if grep -q "^\[include ${config_file}\]" "$working_cfg"; then
+        echo "Found existing ${include_directive}. No need to add another."
+    else
+        # Add the include directive after macros.cfg (if it exists) or at the top
+        if grep -q '^\[include macros\.cfg\]' "$working_cfg"; then
+            # Insert after macros.cfg
+            sed -i "/\[include macros\.cfg\]/a\\${include_directive}" "$working_cfg"
+            echo "Added ${include_directive} after [include macros.cfg]"
+        else
+            # Insert at the top
+            sed -i "1i${include_directive}\n" "$working_cfg"
+            echo "Added ${include_directive} to the top of printer.cfg"
+        fi
+    fi
+    
+    # Remove any commented versions of the include directive
+    sed -i "s/^# \[include ${config_file}\]//" "$working_cfg"
+    
+    # Replace the original file with the modified version
+    mv "$working_cfg" "$printer_cfg"
+    
+    echo "Updated printer.cfg with web interface configuration"
+}
+
+# Function to add force_move section to printer.cfg
+add_force_move() {
+    local printer_cfg="${KLIPPER_CONFIG}/printer.cfg"
+    
+    # Check if printer.cfg exists
+    if [ ! -f "$printer_cfg" ]; then
+        echo "[WARNING] printer.cfg not found at ${printer_cfg}"
+        return
+    fi
+
+    # Create a working copy
+    cp "$printer_cfg" "${BACKUP_DIR}/printer.cfg.forcemove_${CURRENT_DATE}"
+    local working_cfg="${BACKUP_DIR}/printer.cfg.forcemove_${CURRENT_DATE}"
+    
+    # Check if force_move section already exists
+    if grep -q '^\[force_move\]' "$working_cfg"; then
+        # If it exists, check if enable_force_move is set to true
+        if grep -q '^\[force_move\]' -A 2 "$working_cfg" | grep -q 'enable_force_move: true'; then
+            # Already properly configured, no changes needed
+            rm "$working_cfg"
+            return
+        else
+            # Force_move section exists but enable_force_move is not set to true
+            # Update the existing section
+            sed -i '/^\[force_move\]/,/^$/s/enable_force_move:.*$/enable_force_move: true/' "$working_cfg"
+            if ! grep -q 'enable_force_move: true' "$working_cfg"; then
+                # If the parameter wasn't found to update, add it to the section
+                sed -i '/^\[force_move\]/a enable_force_move: true' "$working_cfg"
+            fi
+        fi
+    else
+        # force_move section doesn't exist, add it to the end of the file
+        echo -e "\n[force_move]\nenable_force_move: true\n" >> "$working_cfg"
+    fi
+    
+    # Replace the original file with the modified version
+    mv "$working_cfg" "$printer_cfg"
+}
+
 # Modified to restore latest backup of specified macro files
 restore_backup() {
     # Always try to restore macros.cfg
@@ -291,6 +399,8 @@ if [ ! $UNINSTALL ]; then
     backup_existing_macros
     install_macros
     check_and_update_printer_cfg
+    install_web_interface_config
+    add_force_move
     start_klipper
     echo "Installation complete! Please check your printer's web interface to verify the changes."
 
@@ -298,16 +408,16 @@ if [ ! $UNINSTALL ]; then
     echo ""
     echo "Would you like to install A Better Print_Start Macro?"
     echo "Note: This will also install KAMP, which needs to be configured per KAMP documentation."
-    echo "More information can be found at: https://github.com/ss1gohan13/A-better-print_start-macro-SV08"
+    echo "More information can be found at: https://github.com/ss1gohan13/A-better-print_start-macro"
     read -p "Install Print_Start macro and KAMP? (y/N): " install_print_start
     
     if [[ "$install_print_start" =~ ^[Yy]$ ]]; then
         echo "Installing KAMP and A Better Print_Start Macro..."
         install_kamp # Ensure KAMP is installed before the macro
-        curl -sSL https://raw.githubusercontent.com/ss1gohan13/A-better-print_start-macro-SV08/main/install_start_print.sh | bash
+        curl -sSL https://raw.githubusercontent.com/ss1gohan13/A-better-print_start-macro/main/install_start_print.sh | bash
         echo ""
         echo "Print_Start macro and KAMP have been installed!"
-        echo "Please visit https://github.com/ss1gohan13/A-better-print_start-macro-SV08 for instructions on configuring your slicer settings."
+        echo "Please visit https://github.com/ss1gohan13/A-better-print_start-macro for instructions on configuring your slicer settings."
     fi
 
     # Prompt for End Print macro installation
