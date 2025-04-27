@@ -52,7 +52,6 @@ This will:
 - ALL_FAN_OFF - no longer needed but kept
 - bed_mesh_init - removed - not needed
 - BED_MESH_CALIBRATE - ~~removed~~ replaced with G29 (for Marlin users)
-- CANCEL_PRINT replaced - add fluidd or mainsail config, and customize, to specific requested settings
 - CLEAN_NOZZLE is updated/shortened - this is meant to work with the stock nozzle scrubber setup
 - END_PRINT replaced - see the [end print macro](https://github.com/ss1gohan13/A-Better-End-Print-Macro)
 - Force move is moved into printer.cfg - Its not a macro... move it
@@ -64,9 +63,10 @@ This will:
 - M190 removed - not needed
 - M600 modified - only use PAUSE - use/customize fluidd/mainsail config to use PAUSE macro and parking position
 - **NEW** mainled - toggle main LED light in printer
-- PAUSE replaced - add fluidd or mainsail config, and customize, to specific requested settings
 - PROBE_CALIBRATE ~~removed - this is a klipper standard - calibrate at your requested bed temp~~ - Added back - default temps 150C nozzle 60C bed - bed temp can be customized
 - QUAD_GANTRY_LEVEL removed - not needed - QGL is a klipper standard and can be integrated with replacement [start print macro](https://github.com/ss1gohan13/A-better-print_start-macro-SV08)
-- RESUME replaced - add fluidd or mainsail config, and customize, to specific requested settings
+- RESUME replaced - add [include fluidd.cfg] or [include mainsail.cfg] to the printer.cfg, customize _CLIENT_VARIABLES to specific requested locations
+- CANCEL_PRINT replaced - add [include fluidd.cfg] or [include mainsail.cfg] to the printer.cfg, customize _CLIENT_VARIABLES to specific requested locations
+- PAUSE replaced - add [include fluidd.cfg] or [include mainsail.cfg] to the printer.cfg, customize _CLIENT_VARIABLES to specific requested locations
 - START_PRINT replaced - see the [start print macro](https://github.com/ss1gohan13/A-better-print_start-macro-SV08) replacement
 - TEST_BELT: ~~temp removed until confirmed working - Acquire Shake Tune and run calibration as workaround~~ Replaced with SHAPER_CALIBRATE
