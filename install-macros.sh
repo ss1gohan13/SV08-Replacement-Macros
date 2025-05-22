@@ -66,33 +66,36 @@ get_user_macro_files() {
     echo "Looking for macro files in $KLIPPER_CONFIG..."
     echo "Found these potential macro files:"
     
-    # Find files with names that might be macro files and display them
     find "$KLIPPER_CONFIG" -maxdepth 1 -type f -name "*.cfg" | sort | while read -r file; do
-        # Skip backup files and timestamp-named files
         if [[ ! "$(basename "$file")" =~ (backup|[0-9]{8}_[0-9]{6})\.cfg$ ]]; then
             echo "  - $(basename "$file")"
         fi
     done
     
     echo ""
+    # --- NEW PROMPT ---
+    read -p "Do you have a custom macro.cfg installed? (y/N): " has_custom_macro
+    if [[ ! "$has_custom_macro" =~ ^[Yy]$ ]]; then
+        echo "No custom macro.cfg detected. Will use default 'macros.cfg'."
+        MACRO_FILES=("macros.cfg")
+        echo "Will download new macros to: macros.cfg"
+        return
+    fi
+    # --- END NEW PROMPT ---
+    
     echo "Please enter the filenames of your macro files (space separated)."
     echo "Example: macros.cfg sv08_macros.cfg custom_macros.cfg"
     echo "Press Enter if you have no existing macro files."
     read -p "> " USER_MACRO_FILES
     
-    # Always reset to default for reliable downloading
     MACRO_FILES=("macros.cfg")
     
     if [ -n "$USER_MACRO_FILES" ]; then
-        # User entered something - this is just for backups
         echo "Will back up the following files: $USER_MACRO_FILES"
         read -ra USER_FILES <<< "$USER_MACRO_FILES"
-        
-        # Backup the files the user mentioned, but always use macros.cfg as the target
         for file_name in "${USER_FILES[@]}"; do
             if [ -f "${KLIPPER_CONFIG}/${file_name}" ]; then
                 echo "Will back up existing ${file_name}"
-                # Add to backup list, but don't change the main target file
                 BACKUP_FILES+=("$file_name")
             fi
         done
@@ -156,41 +159,31 @@ install_macros() {
 check_and_update_printer_cfg() {
     local printer_cfg="${KLIPPER_CONFIG}/printer.cfg"
     
-    # Check specifically for the main printer.cfg
     if [ ! -f "$printer_cfg" ]; then
         echo "[WARNING] printer.cfg not found at ${printer_cfg}"
         echo "You will need to manually add: [include macros.cfg] to your printer.cfg"
         return
     fi
 
-    # Always create a backup of the main printer.cfg first
     cp "$printer_cfg" "${BACKUP_DIR}/printer.cfg.backup_${CURRENT_DATE}"
     echo "Created backup of printer.cfg at ${BACKUP_DIR}/printer.cfg.backup_${CURRENT_DATE}"
     
-    # Use sed for direct file manipulation
-    # First make a working copy
     cp "$printer_cfg" "${BACKUP_DIR}/printer.cfg.working_${CURRENT_DATE}"
     local working_cfg="${BACKUP_DIR}/printer.cfg.working_${CURRENT_DATE}"
     
     echo "Processing printer.cfg file..."
     
-    # 1. Comment out existing lines with [include Macro.cfg]
     sed -i 's/^\[include Macro\.cfg\]/# [include Macro.cfg]/' "$working_cfg"
     
-    # 2. Look for existing [include macros.cfg] 
     if grep -q '^\[include macros\.cfg\]' "$working_cfg"; then
         echo "Found existing [include macros.cfg]. No need to add another."
     else
-        # 3. Add [include macros.cfg] at the top of the file
         sed -i '1i[include macros.cfg]\n' "$working_cfg"
         echo "Added [include macros.cfg] to the top of printer.cfg"
     fi
-    
-    # 4. Make sure we don't have any commented out [include macros.cfg] lines at the bottom
-    # This is to fix the fourth bug where a commented include was appearing at the bottom
+
     sed -i 's/^# \[include macros\.cfg\]//' "$working_cfg"
-    
-    # 5. Replace the original file with our modified version
+
     mv "$working_cfg" "$printer_cfg"
     
     echo "Updated printer.cfg successfully"
@@ -200,21 +193,18 @@ check_and_update_printer_cfg() {
 install_web_interface_config() {
     local printer_cfg="${KLIPPER_CONFIG}/printer.cfg"
     
-    # Check if printer.cfg exists
     if [ ! -f "$printer_cfg" ]; then
         echo "[WARNING] printer.cfg not found at ${printer_cfg}"
         echo "You will need to manually add web interface configuration"
         return
     fi
 
-    # Prompt user to select web interface
     echo ""
     echo "What web interface are you using?"
     echo "1) Fluidd"
     echo "2) Mainsail"
     read -p "Select an option (1/2): " web_interface_choice
     
-    # Set the include directive based on user choice
     local include_directive=""
     case $web_interface_choice in
         1)
@@ -231,35 +221,27 @@ install_web_interface_config() {
             ;;
     esac
     
-    # Extract the filename from the include directive for string manipulation
     local config_file=$(echo "$include_directive" | sed -n 's/\[include \(.*\)\]/\1/p')
     
-    # Create a working copy
     cp "$printer_cfg" "${BACKUP_DIR}/printer.cfg.webinterface_${CURRENT_DATE}"
     local working_cfg="${BACKUP_DIR}/printer.cfg.webinterface_${CURRENT_DATE}"
     
     echo "Processing printer.cfg for web interface configuration..."
     
-    # Check if the include directive already exists
     if grep -q "^\[include ${config_file}\]" "$working_cfg"; then
         echo "Found existing ${include_directive}. No need to add another."
     else
-        # Add the include directive after macros.cfg (if it exists) or at the top
         if grep -q '^\[include macros\.cfg\]' "$working_cfg"; then
-            # Insert after macros.cfg
             sed -i "/\[include macros\.cfg\]/a\\${include_directive}" "$working_cfg"
             echo "Added ${include_directive} after [include macros.cfg]"
         else
-            # Insert at the top
             sed -i "1i${include_directive}\n" "$working_cfg"
             echo "Added ${include_directive} to the top of printer.cfg"
         fi
     fi
     
-    # Remove any commented versions of the include directive
     sed -i "s/^# \[include ${config_file}\]//" "$working_cfg"
     
-    # Replace the original file with the modified version
     mv "$working_cfg" "$printer_cfg"
     
     echo "Updated printer.cfg with web interface configuration"
@@ -269,44 +251,33 @@ install_web_interface_config() {
 add_force_move() {
     local printer_cfg="${KLIPPER_CONFIG}/printer.cfg"
     
-    # Check if printer.cfg exists
     if [ ! -f "$printer_cfg" ]; then
         echo "[WARNING] printer.cfg not found at ${printer_cfg}"
         return
     fi
 
-    # Create a working copy
     cp "$printer_cfg" "${BACKUP_DIR}/printer.cfg.forcemove_${CURRENT_DATE}"
     local working_cfg="${BACKUP_DIR}/printer.cfg.forcemove_${CURRENT_DATE}"
     
-    # Check if force_move section already exists
     if grep -q '^\[force_move\]' "$working_cfg"; then
-        # If it exists, check if enable_force_move is set to true
         if grep -q '^\[force_move\]' -A 2 "$working_cfg" | grep -q 'enable_force_move: true'; then
-            # Already properly configured, no changes needed
             rm "$working_cfg"
             return
         else
-            # Force_move section exists but enable_force_move is not set to true
-            # Update the existing section
             sed -i '/^\[force_move\]/,/^$/s/enable_force_move:.*$/enable_force_move: true/' "$working_cfg"
             if ! grep -q 'enable_force_move: true' "$working_cfg"; then
-                # If the parameter wasn't found to update, add it to the section
                 sed -i '/^\[force_move\]/a enable_force_move: true' "$working_cfg"
             fi
         fi
     else
-        # force_move section doesn't exist, add it to the end of the file
         echo -e "\n[force_move]\nenable_force_move: true\n" >> "$working_cfg"
     fi
     
-    # Replace the original file with the modified version
     mv "$working_cfg" "$printer_cfg"
 }
 
 # Modified to restore latest backup of specified macro files
 restore_backup() {
-    # Always try to restore macros.cfg
     local latest_macros_backup=$(ls -t ${BACKUP_DIR}/macros.cfg.backup_* 2>/dev/null | head -n1)
     if [ -n "$latest_macros_backup" ]; then
         echo "Restoring from backup: $latest_macros_backup"
@@ -320,7 +291,6 @@ restore_backup() {
         fi
     fi
     
-    # Also restore any additional files specified by the user
     if [ -n "${BACKUP_FILES}" ]; then
         for file_name in "${BACKUP_FILES[@]}"; do
             if [ "$file_name" != "macros.cfg" ]; then
@@ -334,9 +304,7 @@ restore_backup() {
         done
     fi
 
-    # Restore only the main printer.cfg if it was modified
     local printer_cfg="${KLIPPER_CONFIG}/printer.cfg"
-    # Only restore if it's not a timestamped version
     if [[ ! "$(basename "$printer_cfg")" =~ [0-9]{8}_[0-9]{6}\.cfg$ ]]; then
         local printer_backup=$(ls -t ${BACKUP_DIR}/printer.cfg.backup_* 2>/dev/null | head -n1)
         if [ -n "$printer_backup" ]; then
@@ -404,7 +372,6 @@ if [ ! $UNINSTALL ]; then
     start_klipper
     echo "Installation complete! Please check your printer's web interface to verify the changes."
 
-    # Prompt for Print_Start macro installation
     echo ""
     echo "Would you like to install A Better Print_Start Macro?"
     echo "Note: This will also install KAMP, which needs to be configured per KAMP documentation."
@@ -413,14 +380,13 @@ if [ ! $UNINSTALL ]; then
     
     if [[ "$install_print_start" =~ ^[Yy]$ ]]; then
         echo "Installing KAMP and A Better Print_Start Macro..."
-        install_kamp # Ensure KAMP is installed before the macro
+        install_kamp
         curl -sSL https://raw.githubusercontent.com/ss1gohan13/A-better-print_start-macro/main/install_start_print.sh | bash
         echo ""
         echo "Print_Start macro and KAMP have been installed!"
         echo "Please visit https://github.com/ss1gohan13/A-better-print_start-macro for instructions on configuring your slicer settings."
     fi
 
-    # Prompt for End Print macro installation
     echo ""
     echo "Would you like to install A Better End Print Macro?"
     echo "Note: This requires additional changes to your slicer settings."
