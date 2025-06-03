@@ -270,7 +270,7 @@ add_force_move() {
             fi
         fi
     else
-        echo -e "\n[force_move]\nenable_force_move: true\n" >> "$working_cfg"
+        sed -i '1i[force_move]\nenable_force_move: true\n' "$working_cfg"
     fi
     
     mv "$working_cfg" "$printer_cfg"
