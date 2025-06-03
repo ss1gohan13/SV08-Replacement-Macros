@@ -46,9 +46,9 @@ This will:
 
 - _auto_zoffset and _CALIBRATION_ZOFFSET are temp removed until auto z offset is working
 - _Delay_Calibrate temp removed - is it needed?
-- _global_var is no longer needed
-- _print_start_wait - removed not needed
-- _resume_wait - removed not needed
+- _global_var - removed - is no longer needed
+- _print_start_wait - removed - is no longer needed
+- _resume_wait - removed - is no longer needed
 - ALL_FAN_OFF - no longer needed but kept
 - bed_mesh_init - removed - not needed
 - BED_MESH_CALIBRATE - ~~removed~~ replaced with G29 (for Marlin users)
