@@ -46,7 +46,7 @@ This will:
 
 - _auto_zoffset and _CALIBRATION_ZOFFSET are temp removed until auto z offset is working
 - _Delay_Calibrate temp removed - is it needed?
-- _global_var - removed - is no longer needed
+- _global_var - ~~removed - is no longer needed~~ - replaced with stock  _CLIENT_VARIABLE macro from mainsial/fluidd and customized for SV08 users
 - _print_start_wait - removed - is no longer needed
 - _resume_wait - removed - is no longer needed
 - ALL_FAN_OFF - no longer needed but kept
