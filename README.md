@@ -46,24 +46,24 @@ This will:
 
 - _auto_zoffset and _CALIBRATION_ZOFFSET are temp removed until auto z offset is working
 - _Delay_Calibrate temp removed - is it needed?
-- _global_var - ~~removed - is no longer needed~~ - replaced with stock  _CLIENT_VARIABLE macro from mainsial/fluidd and customized for SV08 users
+- _global_var - ~~removed - is no longer needed~~ - replaced with stock  _CLIENT_VARIABLE macro from mainsial/fluidd and ~~customized for SV08 users~~ now calls printers max X/Y positions with buffer
 - _print_start_wait - removed - is no longer needed
 - _resume_wait - removed - is no longer needed
 - ALL_FAN_OFF - no longer needed but kept
 - bed_mesh_init - removed - is no longer needed
 - BED_MESH_CALIBRATE - ~~removed~~ replaced with G29 (for Marlin users)
-- CLEAN_NOZZLE is updated/shortened - this is meant to work with the stock nozzle scrubber setup
-- END_PRINT replaced - see the [end print macro](https://github.com/ss1gohan13/A-Better-End-Print-Macro)
+- CLEAN_NOZZLE is updated/shortened - this is meant to work with the stock SV08 nozzle scrubber setup
+- END_PRINT replaced - see the [replacement end print macro](https://github.com/ss1gohan13/A-Better-End-Print-Macro)
 - Force move is moved into printer.cfg - Its not a macro... 
 - ~~G34 removed~~ G34 remastered.
-- idle timeout moved to fluidd and/or mainsail config. Please update and configure
+- idle timeout - remastered - using fluidd/mainsail CLIENT_VARIABLE macro. Default idle timer set to 10 min. Customize as needed
 - M106 can be removed - not needed for mainline - see [mainline printer.cfg](https://github.com/Rappetor/Sovol-SV08-Mainline/blob/main/files-used/config/printer.cfg) for multipin fan
 - M107 can be removed - not needed for mainline
 - M109 removed - not needed - stock klipper macro
 - M190 removed - not needed - stock klipper macro
-- M600 modified - only use PAUSE - ~~use/customize fluidd/mainsail config to use PAUSE macro and parking position~~ _CLIENT_VARIABLE now included with macros.cfg. SV08 max values in place. *WARNING* If you are not on an SV08, update the locations as needed
+- M600 modified - only use PAUSE - ~~use/customize fluidd/mainsail config to use PAUSE macro and parking position~~ _CLIENT_VARIABLE now included with macros.cfg. Posiiton max X/Y values are called in place.
 - **NEW** mainled - toggle main LED light in printer
-- PROBE_CALIBRATE ~~removed - this is a klipper standard - calibrate at your requested bed temp~~ - Customized and added back - default temps 150C nozzle 60C bed - bed temp can be customized
+- PROBE_CALIBRATE ~~removed - this is a klipper standard - calibrate at your requested bed temp~~ - Remastered - default temps 150C nozzle 60C bed - bed temp can be customized
 - QUAD_GANTRY_LEVEL ~~removed - not needed - QGL is a klipper standard and can be integrated with replacement~~ Replaced with GANTRY_LEVELING and included with [start print macro](https://github.com/ss1gohan13/A-better-print_start-macro-SV08)
 - RESUME replaced - add [include fluidd.cfg] or [include mainsail.cfg] to the printer.cfg, ~~customize _CLIENT_VARIABLES to specific requested locations~~ _CLIENT_VARIABLE now included with macros.cfg. SV08 max values in place. *WARNING* If you are not on an SV08, update the locations as needed
 - CANCEL_PRINT replaced - add [include fluidd.cfg] or [include mainsail.cfg] ~~to the printer.cfg, customize _CLIENT_VARIABLES to specific requested locations~~ _CLIENT_VARIABLE now included with macros.cfg. SV08 max values in place. *WARNING* If you are not on an SV08, update the locations as needed
