@@ -3,6 +3,9 @@
 <details>
 <summary>How to install the macros</summary>
 
+1) SSH into your printer using your prefered ssh client
+2) Run the following command:
+
 ```
 cd ~
 git clone https://github.com/ss1gohan13/SV08-Replacement-Macros.git
