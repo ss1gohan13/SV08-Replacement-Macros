@@ -336,6 +336,76 @@ verify_ready() {
     fi
 }
 
+# Function to customize KAMP settings for SV08
+customize_kamp_settings() {
+    local kamp_settings="${KLIPPER_CONFIG}/KAMP_Settings.cfg"
+    
+    if [ ! -f "$kamp_settings" ]; then
+        echo "[WARNING] KAMP_Settings.cfg not found at ${kamp_settings}"
+        return
+    fi
+    
+    echo "Customizing KAMP settings for SV08..."
+    
+    # Create backup of original KAMP_Settings.cfg
+    cp "$kamp_settings" "${BACKUP_DIR}/KAMP_Settings.cfg.backup_${CURRENT_DATE}"
+    echo "Created backup of KAMP_Settings.cfg at ${BACKUP_DIR}/KAMP_Settings.cfg.backup_${CURRENT_DATE}"
+    
+    # Uncomment Line_Purge.cfg (line 4)
+    sed -i 's/^#\[include \.\/KAMP\/Line_Purge\.cfg\]/[include .\/KAMP\/Line_Purge.cfg]/' "$kamp_settings"
+    
+    # Uncomment Smart_Park.cfg (line 6)  
+    sed -i 's/^#\[include \.\/KAMP\/Smart_Park\.cfg\]/[include .\/KAMP\/Smart_Park.cfg]/' "$kamp_settings"
+    
+    echo "KAMP settings customized:"
+    echo "  - Enabled Line_Purge.cfg for adaptive line purging"
+    echo "  - Enabled Smart_Park.cfg for smart parking functionality"
+}
+
+# Function to add max_extrude_cross_section to extruder section
+add_max_extrude_cross_section() {
+    local printer_cfg="${KLIPPER_CONFIG}/printer.cfg"
+    
+    if [ ! -f "$printer_cfg" ]; then
+        echo "[WARNING] printer.cfg not found at ${printer_cfg}"
+        return
+    fi
+    
+    echo "Adding max_extrude_cross_section to extruder section..."
+    
+    # Create backup of printer.cfg
+    cp "$printer_cfg" "${BACKUP_DIR}/printer.cfg.maxextrude_${CURRENT_DATE}"
+    local working_cfg="${BACKUP_DIR}/printer.cfg.maxextrude_${CURRENT_DATE}"
+    
+    # Check if max_extrude_cross_section already exists in extruder section
+    if grep -A 50 '^\[extruder\]' "$working_cfg" | grep -q 'max_extrude_cross_section'; then
+        echo "max_extrude_cross_section already exists in extruder section. Updating value to 10..."
+        # Update existing value to 10
+        sed -i '/^\[extruder\]/,/^\[.*\]/{s/^max_extrude_cross_section:.*/max_extrude_cross_section: 10/}' "$working_cfg"
+    else
+        echo "Adding max_extrude_cross_section: 10 to end of extruder section..."
+        # Find the end of the extruder section and add max_extrude_cross_section before the next section
+        sed -i '/^\[extruder\]/,/^\[.*\]/{
+            /^\[extruder\]/!{
+                /^\[.*\]/{
+                    i\max_extrude_cross_section: 10
+                }
+            }
+        }' "$working_cfg"
+        
+        # Handle case where extruder is the last section (no section after it)
+        if ! sed -n '/^\[extruder\]/,/^\[.*\]/p' "$working_cfg" | tail -n +2 | grep -q '^\['; then
+            # Extruder is the last section, append at the end of file
+            sed -i '/^\[extruder\]/,${
+                $a\max_extrude_cross_section: 10
+            }' "$working_cfg"
+        fi
+    fi
+    
+    mv "$working_cfg" "$printer_cfg"
+    echo "Added max_extrude_cross_section: 10 to end of extruder section"
+}
+
 # Function to install KAMP
 install_kamp() {
     if [ -d "${KLIPPER_CONFIG}/KAMP" ]; then
@@ -348,6 +418,13 @@ install_kamp() {
     git clone https://github.com/kyleisah/Klipper-Adaptive-Meshing-Purging.git
     ln -s ~/Klipper-Adaptive-Meshing-Purging/Configuration "${KLIPPER_CONFIG}/KAMP"
     cp ~/Klipper-Adaptive-Meshing-Purging/Configuration/KAMP_Settings.cfg "${KLIPPER_CONFIG}/KAMP_Settings.cfg"
+    
+    # Customize KAMP settings for SV08
+    customize_kamp_settings
+    
+    # Add max_extrude_cross_section to extruder section
+    add_max_extrude_cross_section
+    
     echo "KAMP installation complete!"
 }
 
