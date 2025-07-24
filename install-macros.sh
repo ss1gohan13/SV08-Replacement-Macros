@@ -3,7 +3,7 @@
 set -e
 
 # Script Info
-# Last Updated: 2025-04-27 18:52:18 UTC
+# Last Updated: 2025-07-23 15:14:30 UTC
 # Author: ss1gohan13
 
 KLIPPER_CONFIG="${HOME}/printer_data/config"
@@ -23,29 +23,26 @@ usage() {
 
 while getopts "c:s:uh" arg; do
     case $arg in
-        c) KLIPPER_CONFIG=$OPTARG;;
-        s) KLIPPER_SERVICE_NAME=$OPTARG;;
-        u) UNINSTALL=1;;
-        h) usage;;
-        ?) usage;;
+        c)
+            KLIPPER_CONFIG="$OPTARG"
+            ;;
+        s)
+            KLIPPER_SERVICE_NAME="$OPTARG"
+            ;;
+        u)
+            UNINSTALL=1
+            ;;
+        h)
+            usage
+            ;;
+        *)
+            usage
+            ;;
     esac
 done
 
-# Find SRCDIR from the pathname of this script
-SRCDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-
-# Verify Klipper service exists
+# Utility to check Klipper config dir exists
 check_klipper() {
-    if [ "$(sudo systemctl list-units --full -all -t service --no-legend | grep -F "$KLIPPER_SERVICE_NAME.service")" ]; then
-        echo "Klipper service found with name \"$KLIPPER_SERVICE_NAME\"."
-    else
-        echo "[ERROR] Klipper service with name \"$KLIPPER_SERVICE_NAME\" not found, please install Klipper first or specify name with -s."
-        exit -1
-    fi
-}
-
-# Check if config directory exists
-check_folders() {
     if [ ! -d "$KLIPPER_CONFIG" ]; then
         echo "[ERROR] Klipper config directory not found at \"$KLIPPER_CONFIG\". Please verify path or specify with -c."
         exit -1
@@ -65,13 +62,12 @@ create_backup_dir() {
 get_user_macro_files() {
     echo "Looking for macro files in $KLIPPER_CONFIG..."
     echo "Found these potential macro files:"
-    
     find "$KLIPPER_CONFIG" -maxdepth 1 -type f -name "*.cfg" | sort | while read -r file; do
         if [[ ! "$(basename "$file")" =~ (backup|[0-9]{8}_[0-9]{6})\.cfg$ ]]; then
             echo "  - $(basename "$file")"
         fi
     done
-    
+
     echo ""
     # --- NEW PROMPT ---
     read -p "Do you have a custom macro.cfg installed? (y/N): " has_custom_macro
@@ -140,10 +136,8 @@ backup_existing_macros() {
 # Using the exact curl command that works - always to macros.cfg
 install_macros() {
     echo "Downloading and installing new macros to macros.cfg..."
-    
     # Always download to macros.cfg regardless of what the user entered
     curl -L https://raw.githubusercontent.com/ss1gohan13/SV08-Replacement-Macros/main/printer_data/config/macros.cfg -o "${KLIPPER_CONFIG}/macros.cfg"
-    
     # Verify download was successful
     if [ -s "${KLIPPER_CONFIG}/macros.cfg" ]; then
         echo "[OK] Macros file downloaded successfully"
@@ -172,7 +166,7 @@ check_and_update_printer_cfg() {
     local working_cfg="${BACKUP_DIR}/printer.cfg.working_${CURRENT_DATE}"
     
     echo "Processing printer.cfg file..."
-    
+
     sed -i 's/^\[include Macro\.cfg\]/# [include Macro.cfg]/' "$working_cfg"
     
     if grep -q '^\[include macros\.cfg\]' "$working_cfg"; then
@@ -185,14 +179,12 @@ check_and_update_printer_cfg() {
     sed -i 's/^# \[include macros\.cfg\]//' "$working_cfg"
 
     mv "$working_cfg" "$printer_cfg"
-    
     echo "Updated printer.cfg successfully"
 }
 
 # Function to install web interface configuration
 install_web_interface_config() {
     local printer_cfg="${KLIPPER_CONFIG}/printer.cfg"
-    
     if [ ! -f "$printer_cfg" ]; then
         echo "[WARNING] printer.cfg not found at ${printer_cfg}"
         echo "You will need to manually add web interface configuration"
@@ -225,9 +217,8 @@ install_web_interface_config() {
     
     cp "$printer_cfg" "${BACKUP_DIR}/printer.cfg.webinterface_${CURRENT_DATE}"
     local working_cfg="${BACKUP_DIR}/printer.cfg.webinterface_${CURRENT_DATE}"
-    
+
     echo "Processing printer.cfg for web interface configuration..."
-    
     if grep -q "^\[include ${config_file}\]" "$working_cfg"; then
         echo "Found existing ${include_directive}. No need to add another."
     else
@@ -239,18 +230,15 @@ install_web_interface_config() {
             echo "Added ${include_directive} to the top of printer.cfg"
         fi
     fi
-    
+
     sed -i "s/^# \[include ${config_file}\]//" "$working_cfg"
-    
     mv "$working_cfg" "$printer_cfg"
-    
     echo "Updated printer.cfg with web interface configuration"
 }
 
 # Function to add force_move section to printer.cfg
 add_force_move() {
     local printer_cfg="${KLIPPER_CONFIG}/printer.cfg"
-    
     if [ ! -f "$printer_cfg" ]; then
         echo "[WARNING] printer.cfg not found at ${printer_cfg}"
         return
@@ -272,7 +260,6 @@ add_force_move() {
     else
         sed -i '1i[force_move]\nenable_force_move: true\n' "$working_cfg"
     fi
-    
     mv "$working_cfg" "$printer_cfg"
 }
 
@@ -336,76 +323,6 @@ verify_ready() {
     fi
 }
 
-# Function to customize KAMP settings for SV08
-customize_kamp_settings() {
-    local kamp_settings="${KLIPPER_CONFIG}/KAMP_Settings.cfg"
-    
-    if [ ! -f "$kamp_settings" ]; then
-        echo "[WARNING] KAMP_Settings.cfg not found at ${kamp_settings}"
-        return
-    fi
-    
-    echo "Customizing KAMP settings for SV08..."
-    
-    # Create backup of original KAMP_Settings.cfg
-    cp "$kamp_settings" "${BACKUP_DIR}/KAMP_Settings.cfg.backup_${CURRENT_DATE}"
-    echo "Created backup of KAMP_Settings.cfg at ${BACKUP_DIR}/KAMP_Settings.cfg.backup_${CURRENT_DATE}"
-    
-    # Uncomment Line_Purge.cfg (line 4)
-    sed -i 's/^#\[include \.\/KAMP\/Line_Purge\.cfg\]/[include .\/KAMP\/Line_Purge.cfg]/' "$kamp_settings"
-    
-    # Uncomment Smart_Park.cfg (line 6)  
-    sed -i 's/^#\[include \.\/KAMP\/Smart_Park\.cfg\]/[include .\/KAMP\/Smart_Park.cfg]/' "$kamp_settings"
-    
-    echo "KAMP settings customized:"
-    echo "  - Enabled Line_Purge.cfg for adaptive line purging"
-    echo "  - Enabled Smart_Park.cfg for smart parking functionality"
-}
-
-# Function to add max_extrude_cross_section to extruder section
-add_max_extrude_cross_section() {
-    local printer_cfg="${KLIPPER_CONFIG}/printer.cfg"
-    
-    if [ ! -f "$printer_cfg" ]; then
-        echo "[WARNING] printer.cfg not found at ${printer_cfg}"
-        return
-    fi
-    
-    echo "Adding max_extrude_cross_section to extruder section..."
-    
-    # Create backup of printer.cfg
-    cp "$printer_cfg" "${BACKUP_DIR}/printer.cfg.maxextrude_${CURRENT_DATE}"
-    local working_cfg="${BACKUP_DIR}/printer.cfg.maxextrude_${CURRENT_DATE}"
-    
-    # Check if max_extrude_cross_section already exists in extruder section
-    if grep -A 50 '^\[extruder\]' "$working_cfg" | grep -q 'max_extrude_cross_section'; then
-        echo "max_extrude_cross_section already exists in extruder section. Updating value to 10..."
-        # Update existing value to 10
-        sed -i '/^\[extruder\]/,/^\[.*\]/{s/^max_extrude_cross_section:.*/max_extrude_cross_section: 10/}' "$working_cfg"
-    else
-        echo "Adding max_extrude_cross_section: 10 to end of extruder section..."
-        # Find the end of the extruder section and add max_extrude_cross_section before the next section
-        sed -i '/^\[extruder\]/,/^\[.*\]/{
-            /^\[extruder\]/!{
-                /^\[.*\]/{
-                    i\max_extrude_cross_section: 10
-                }
-            }
-        }' "$working_cfg"
-        
-        # Handle case where extruder is the last section (no section after it)
-        if ! sed -n '/^\[extruder\]/,/^\[.*\]/p' "$working_cfg" | tail -n +2 | grep -q '^\['; then
-            # Extruder is the last section, append at the end of file
-            sed -i '/^\[extruder\]/,${
-                $a\max_extrude_cross_section: 10
-            }' "$working_cfg"
-        fi
-    fi
-    
-    mv "$working_cfg" "$printer_cfg"
-    echo "Added max_extrude_cross_section: 10 to end of extruder section"
-}
-
 # Function to install KAMP
 install_kamp() {
     if [ -d "${KLIPPER_CONFIG}/KAMP" ]; then
@@ -418,14 +335,87 @@ install_kamp() {
     git clone https://github.com/kyleisah/Klipper-Adaptive-Meshing-Purging.git
     ln -s ~/Klipper-Adaptive-Meshing-Purging/Configuration "${KLIPPER_CONFIG}/KAMP"
     cp ~/Klipper-Adaptive-Meshing-Purging/Configuration/KAMP_Settings.cfg "${KLIPPER_CONFIG}/KAMP_Settings.cfg"
-    
-    # Customize KAMP settings for SV08
-    customize_kamp_settings
-    
-    # Add max_extrude_cross_section to extruder section
-    add_max_extrude_cross_section
-    
     echo "KAMP installation complete!"
+}
+
+# Function to add KAMP include to printer.cfg
+add_kamp_include_to_printer_cfg() {
+    local printer_cfg="${KLIPPER_CONFIG}/printer.cfg"
+    local working_cfg="${BACKUP_DIR}/printer.cfg.kamp_include_${CURRENT_DATE}"
+
+    if [ ! -f "$printer_cfg" ]; then
+        echo "[WARNING] printer.cfg not found at ${printer_cfg}"
+        echo "You will need to manually add: [include KAMP_Settings.cfg] to your printer.cfg"
+        return
+    fi
+
+    cp "$printer_cfg" "$working_cfg"
+
+    if grep -q '^\[include KAMP_Settings\.cfg\]' "$working_cfg"; then
+        echo "Found existing [include KAMP_Settings.cfg]. No need to add another."
+    else
+        if grep -q '^\[include macros\.cfg\]' "$working_cfg"; then
+            sed -i '/\[include macros\.cfg\]/a\[include KAMP_Settings.cfg]' "$working_cfg"
+            echo "Added [include KAMP_Settings.cfg] after [include macros.cfg]"
+        else
+            sed -i '1i[include KAMP_Settings.cfg]\n' "$working_cfg"
+            echo "Added [include KAMP_Settings.cfg] to the top of printer.cfg"
+        fi
+    fi
+
+    mv "$working_cfg" "$printer_cfg"
+    echo "Updated printer.cfg with KAMP include"
+}
+
+# Function to add firmware retraction to printer.cfg
+add_firmware_retraction_to_printer_cfg() {
+    local printer_cfg="${KLIPPER_CONFIG}/printer.cfg"
+    local working_cfg="${BACKUP_DIR}/printer.cfg.firmware_retraction_${CURRENT_DATE}"
+
+    local firmware_retraction_block="[firmware_retraction]
+retract_length: 0.6
+#   The length of filament (in mm) to retract when G10 is activated,
+#   and to unretract when G11 is activated (but see
+#   unretract_extra_length below). The default is 0 mm.
+retract_speed: 60
+#   The speed of retraction, in mm/s. The default is 20 mm/s.
+unretract_extra_length: 0
+#   The length (in mm) of *additional* filament to add when
+#   unretracting.
+unretract_speed: 10
+#   The speed of unretraction, in mm/s. The default is 10 mm/s.
+"
+
+    if [ ! -f "$printer_cfg" ]; then
+        echo "[WARNING] printer.cfg not found at ${printer_cfg}"
+        echo "You will need to manually add the firmware retraction block to your printer.cfg"
+        return
+    fi
+
+    cp "$printer_cfg" "$working_cfg"
+    echo "Created backup of printer.cfg at ${working_cfg}"
+
+    if grep -q '^\[firmware_retraction\]' "$working_cfg"; then
+        echo "Firmware retraction section already exists. Skipping addition."
+        mv "$working_cfg" "$printer_cfg"
+        return
+    fi
+
+    local save_config_line=$(grep -n '^\[save_config\]' "$working_cfg" | cut -d: -f1 | head -n 1)
+    if [ -n "$save_config_line" ]; then
+        # Insert firmware retraction just before [save_config]
+        awk -v block="$firmware_retraction_block" -v line="$save_config_line" '
+            NR==line {print block}
+            {print}
+        ' "$working_cfg" > "${working_cfg}.new"
+        mv "${working_cfg}.new" "$printer_cfg"
+        echo "Added firmware retraction above [save_config] in printer.cfg"
+    else
+        # No [save_config] found, append to end
+        echo "$firmware_retraction_block" >> "$working_cfg"
+        mv "$working_cfg" "$printer_cfg"
+        echo "Appended firmware retraction to end of printer.cfg"
+    fi
 }
 
 # Declare global array for backup files
@@ -459,6 +449,10 @@ if [ ! $UNINSTALL ]; then
         echo "Installing KAMP and A Better Print_Start Macro..."
         install_kamp
         curl -sSL https://raw.githubusercontent.com/ss1gohan13/A-better-print_start-macro/main/install_start_print.sh | bash
+        add_kamp_include_to_printer_cfg
+        # Add max cross extrude to extruder section here if needed
+        # ----YOUR EXISTING EXTRUDER PATCH LOGIC HERE----
+        add_firmware_retraction_to_printer_cfg
         echo ""
         echo "Print_Start macro and KAMP have been installed!"
         echo "Please visit https://github.com/ss1gohan13/A-better-print_start-macro for instructions on configuring your slicer settings."
