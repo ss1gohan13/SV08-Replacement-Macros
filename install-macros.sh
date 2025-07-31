@@ -3,7 +3,7 @@
 set -e
 
 # Script Info
-# Last Updated: 2025-07-23 15:14:30 UTC
+# Last Updated: 2025-07-31 23:35:23 UTC
 # Author: ss1gohan13
 
 KLIPPER_CONFIG="${HOME}/printer_data/config"
@@ -418,13 +418,54 @@ unretract_speed: 10
     fi
 }
 
+# Function to configure Eddy NG Tap in the start print macro
+configure_eddy_ng_tap() {
+    echo ""
+    echo "Do you have Eddy NG installed?"
+    echo "This will enable 'Tappy Tap' functionality in your start print macro."
+    read -p "Enable Eddy NG tapping? (y/N): " enable_eddy_ng
+    
+    if [[ "$enable_eddy_ng" =~ ^[Yy]$ ]]; then
+        echo "Enabling Eddy NG tapping in the start print macro..."
+        
+        # Find the start print macro file
+        local start_print_file="${KLIPPER_CONFIG}/print_start_macro.cfg"
+        
+        if [ ! -f "$start_print_file" ]; then
+            # Try to find the file that might contain the START_PRINT macro
+            for potential_file in "${KLIPPER_CONFIG}"/*.cfg; do
+                if grep -q "\[gcode_macro START_PRINT\]" "$potential_file"; then
+                    start_print_file="$potential_file"
+                    echo "Found START_PRINT macro in: $start_print_file"
+                    break
+                fi
+            done
+        fi
+        
+        if [ -f "$start_print_file" ]; then
+            # Create a backup of the file
+            cp "$start_print_file" "${BACKUP_DIR}/$(basename "$start_print_file").backup_${CURRENT_DATE}"
+            
+            # Uncomment the Eddy NG lines
+            sed -i 's/^#M117 Tappy Tap.../M117 Tappy Tap.../' "$start_print_file"
+            sed -i 's/^#PROBE_EDDY_NG_TAP.*/PROBE_EDDY_NG_TAP/' "$start_print_file"
+            
+            echo "Eddy NG tapping has been enabled in your start print macro."
+        else
+            echo "[WARNING] Could not find the START_PRINT macro file."
+            echo "You will need to manually uncomment the Eddy NG tapping lines in your start print macro."
+        fi
+    else
+        echo "Skipping Eddy NG tapping configuration."
+    fi
+}
+
 # Declare global array for backup files
 declare -a BACKUP_FILES
 
 # Main installation/uninstallation logic
 verify_ready
 check_klipper
-check_folders
 create_backup_dir
 stop_klipper
 get_user_macro_files
@@ -450,9 +491,8 @@ if [ ! $UNINSTALL ]; then
         install_kamp
         curl -sSL https://raw.githubusercontent.com/ss1gohan13/A-better-print_start-macro/main/install_start_print.sh | bash
         add_kamp_include_to_printer_cfg
-        # Add max cross extrude to extruder section here if needed
-        # ----YOUR EXISTING EXTRUDER PATCH LOGIC HERE----
         add_firmware_retraction_to_printer_cfg
+        configure_eddy_ng_tap  # New function call to configure Eddy NG
         echo ""
         echo "Print_Start macro and KAMP have been installed!"
         echo "Please visit https://github.com/ss1gohan13/A-better-print_start-macro for instructions on configuring your slicer settings."
