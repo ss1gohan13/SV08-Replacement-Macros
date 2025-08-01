@@ -3,7 +3,7 @@
 set -e
 
 # Script Info
-# Last Updated: 2025-07-31 23:35:23 UTC
+# Last Updated: 2025-08-01 02:45:00 UTC
 # Author: ss1gohan13
 
 KLIPPER_CONFIG="${HOME}/printer_data/config"
@@ -401,36 +401,40 @@ unretract_speed: 10
         return
     fi
 
-    local save_config_line=$(grep -n '^\[save_config\]' "$working_cfg" | cut -d: -f1 | head -n 1)
+    # Look for the SAVE_CONFIG comment marker instead of [save_config]
+    local save_config_line=$(grep -n '#\*# <---------------------- SAVE_CONFIG ---------------------->' "$working_cfg" | cut -d: -f1 | head -n 1)
+    
     if [ -n "$save_config_line" ]; then
-        # Insert firmware retraction just before [save_config]
+        # Insert firmware retraction just before SAVE_CONFIG marker
         awk -v block="$firmware_retraction_block" -v line="$save_config_line" '
             NR==line {print block}
             {print}
         ' "$working_cfg" > "${working_cfg}.new"
         mv "${working_cfg}.new" "$printer_cfg"
-        echo "Added firmware retraction above [save_config] in printer.cfg"
+        echo "Added firmware retraction above SAVE_CONFIG section in printer.cfg"
     else
-        # No [save_config] found, append to end
+        # No SAVE_CONFIG marker found, append to end
         echo "$firmware_retraction_block" >> "$working_cfg"
         mv "$working_cfg" "$printer_cfg"
         echo "Appended firmware retraction to end of printer.cfg"
     fi
 }
 
-# Function to configure Eddy NG Tap in the start print macro
+# Function to configure Eddy NG Tap in the start print macro and GANTRY_LEVELING macro
 configure_eddy_ng_tap() {
     echo ""
     echo "Do you have Eddy NG installed?"
-    echo "This will enable 'Tappy Tap' functionality in your start print macro."
-    read -p "Enable Eddy NG tapping? (y/N): " enable_eddy_ng
+    echo "This will enable 'Tappy Tap' functionality, rapid bed mesh scanning, and enhanced gantry leveling."
+    read -p "Enable Eddy NG features? (y/N): " enable_eddy_ng
     
     if [[ "$enable_eddy_ng" =~ ^[Yy]$ ]]; then
-        echo "Enabling Eddy NG tapping in the start print macro..."
+        echo "Enabling Eddy NG features in your configuration..."
         
         # Find the start print macro file
         local start_print_file="${KLIPPER_CONFIG}/print_start_macro.cfg"
+        local macros_file="${KLIPPER_CONFIG}/macros.cfg"
         
+        # --- Configure Start Print Macro ---
         if [ ! -f "$start_print_file" ]; then
             # Try to find the file that might contain the START_PRINT macro
             for potential_file in "${KLIPPER_CONFIG}"/*.cfg; do
@@ -446,17 +450,47 @@ configure_eddy_ng_tap() {
             # Create a backup of the file
             cp "$start_print_file" "${BACKUP_DIR}/$(basename "$start_print_file").backup_${CURRENT_DATE}"
             
-            # Uncomment the Eddy NG lines
+            # Uncomment the Eddy NG tapping lines
+            sed -i 's/^#STATUS_CALIBRATING_Z/STATUS_CALIBRATING_Z/' "$start_print_file"
             sed -i 's/^#M117 Tappy Tap.../M117 Tappy Tap.../' "$start_print_file"
             sed -i 's/^#PROBE_EDDY_NG_TAP.*/PROBE_EDDY_NG_TAP/' "$start_print_file"
             
-            echo "Eddy NG tapping has been enabled in your start print macro."
+            # Uncomment the Method=rapid_scan for bed mesh
+            sed -i 's/BED_MESH_CALIBRATE ADAPTIVE=1 #Method=rapid_scan/BED_MESH_CALIBRATE ADAPTIVE=1 Method=rapid_scan/' "$start_print_file"
+            
+            echo "Eddy NG tapping and rapid bed mesh scanning have been enabled in your start print macro."
         else
             echo "[WARNING] Could not find the START_PRINT macro file."
-            echo "You will need to manually uncomment the Eddy NG tapping lines in your start print macro."
+            echo "You will need to manually uncomment the Eddy NG features in your start print macro."
         fi
+        
+        # --- Configure GANTRY_LEVELING Macro ---
+        if [ -f "$macros_file" ]; then
+            # Create a backup of the macros file
+            cp "$macros_file" "${BACKUP_DIR}/macros.cfg.backup_eddy_${CURRENT_DATE}"
+            
+            # Uncomment retry_tolerance parameters for QGL and Z_TILT
+            sed -i 's/QUAD_GANTRY_LEVEL horizontal_move_z=5 #retry_tolerance=1/QUAD_GANTRY_LEVEL horizontal_move_z=5 retry_tolerance=1/' "$macros_file"
+            sed -i 's/Z_TILT_ADJUST horizontal_move_z=5 #RETRY_TOLERANCE=1/Z_TILT_ADJUST horizontal_move_z=5 RETRY_TOLERANCE=1/' "$macros_file"
+            
+            # Uncomment second pass fine adjustments
+            sed -i 's/^#QUAD_GANTRY_LEVEL horizontal_move_z=2/QUAD_GANTRY_LEVEL horizontal_move_z=2/' "$macros_file"
+            sed -i 's/^#Z_TILT_ADJUST horizontal_move_z=2/Z_TILT_ADJUST horizontal_move_z=2/' "$macros_file"
+            
+            # Also update G29 macro for rapid scanning
+            sed -i 's/BED_MESH_CALIBRATE ADAPTIVE=1       # Method=rapid_scan/BED_MESH_CALIBRATE ADAPTIVE=1 Method=rapid_scan       #/' "$macros_file"
+            
+            echo "Eddy NG enhanced gantry leveling has been enabled in your GANTRY_LEVELING macro."
+            echo "Both QGL and Z_TILT configurations have been updated with retry_tolerance and fine adjustment passes."
+        else
+            echo "[WARNING] Could not find macros.cfg file."
+            echo "You will need to manually uncomment the Eddy NG features in your gantry leveling macro."
+        fi
+        
+        echo "All Eddy NG features have been enabled in your configuration."
+        
     else
-        echo "Skipping Eddy NG tapping configuration."
+        echo "Skipping Eddy NG features configuration."
     fi
 }
 
@@ -492,7 +526,7 @@ if [ ! $UNINSTALL ]; then
         curl -sSL https://raw.githubusercontent.com/ss1gohan13/A-better-print_start-macro/main/install_start_print.sh | bash
         add_kamp_include_to_printer_cfg
         add_firmware_retraction_to_printer_cfg
-        configure_eddy_ng_tap  # New function call to configure Eddy NG
+        configure_eddy_ng_tap  # Configure Eddy NG features
         echo ""
         echo "Print_Start macro and KAMP have been installed!"
         echo "Please visit https://github.com/ss1gohan13/A-better-print_start-macro for instructions on configuring your slicer settings."
