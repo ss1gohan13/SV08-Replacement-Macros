@@ -3,25 +3,40 @@
 set -e
 
 # Script Info
-# Last Updated: 2025-08-01 02:45:00 UTC
+# Last Updated: 2025-10-06 15:15:19 UTC
 # Author: ss1gohan13
 
 KLIPPER_CONFIG="${HOME}/printer_data/config"
+KLIPPER_PATH="${HOME}/klipper"
 KLIPPER_SERVICE_NAME=klipper
 BACKUP_DIR="${KLIPPER_CONFIG}/backup"
 CURRENT_DATE=$(date +%Y%m%d_%H%M%S)
+VERSION="1.2.0"
+
+# Default to menu mode - menu will show by default
+MENU_MODE=1
+
+# Color codes for better readability
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+MAGENTA='\033[0;35m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
 
 # Parse command line arguments
 usage() {
-    echo "Usage: $0 [-c <config path>] [-s <klipper service name>] [-u]" 1>&2
+    echo "Usage: $0 [-c <config path>] [-s <klipper service name>] [-u] [-l]" 1>&2
     echo "  -c : Specify custom config path (default: ${KLIPPER_CONFIG})" 1>&2
     echo "  -s : Specify Klipper service name (default: klipper)" 1>&2
     echo "  -u : Uninstall" 1>&2
+    echo "  -l : Run in linear mode (skip interactive menu)" 1>&2
     echo "  -h : Show this help message" 1>&2
     exit 1
 }
 
-while getopts "c:s:uh" arg; do
+while getopts "c:s:ulh" arg; do
     case $arg in
         c)
             KLIPPER_CONFIG="$OPTARG"
@@ -31,6 +46,9 @@ while getopts "c:s:uh" arg; do
             ;;
         u)
             UNINSTALL=1
+            ;;
+        l)
+            MENU_MODE=0
             ;;
         h)
             usage
@@ -44,10 +62,10 @@ done
 # Utility to check Klipper config dir exists
 check_klipper() {
     if [ ! -d "$KLIPPER_CONFIG" ]; then
-        echo "[ERROR] Klipper config directory not found at \"$KLIPPER_CONFIG\". Please verify path or specify with -c."
+        echo -e "${RED}[ERROR] Klipper config directory not found at \"$KLIPPER_CONFIG\". Please verify path or specify with -c.${NC}"
         exit -1
     fi
-    echo "Klipper config directory found at $KLIPPER_CONFIG"
+    echo -e "${GREEN}Klipper config directory found at $KLIPPER_CONFIG${NC}"
 }
 
 # Create backup directory if it doesn't exist
@@ -56,6 +74,27 @@ create_backup_dir() {
         echo "Creating backup directory at $BACKUP_DIR"
         mkdir -p "$BACKUP_DIR"
     fi
+}
+
+# Verify script is not run as root
+verify_ready() {
+    if [ "$EUID" -eq 0 ]; then
+        echo -e "${RED}[ERROR] This script must not run as root${NC}"
+        exit -1
+    fi
+}
+
+# Service management functions
+start_klipper() {
+    echo -n "Starting Klipper... "
+    sudo systemctl start $KLIPPER_SERVICE_NAME
+    echo -e "${GREEN}[OK]${NC}"
+}
+
+stop_klipper() {
+    echo -n "Stopping Klipper... "
+    sudo systemctl stop $KLIPPER_SERVICE_NAME
+    echo -e "${GREEN}[OK]${NC}"
 }
 
 # Modified to properly handle user input for macro files
@@ -69,7 +108,6 @@ get_user_macro_files() {
     done
 
     echo ""
-    # --- NEW PROMPT ---
     read -p "Do you have a custom macro.cfg installed? (y/N): " has_custom_macro
     if [[ ! "$has_custom_macro" =~ ^[Yy]$ ]]; then
         echo "No custom macro.cfg detected. Will use default 'macros.cfg'."
@@ -77,7 +115,6 @@ get_user_macro_files() {
         echo "Will download new macros to: macros.cfg"
         return
     fi
-    # --- END NEW PROMPT ---
     
     echo "Please enter the filenames of your macro files (space separated)."
     echo "Example: macros.cfg sv08_macros.cfg custom_macros.cfg"
@@ -140,11 +177,11 @@ install_macros() {
     curl -L https://raw.githubusercontent.com/ss1gohan13/SV08-Replacement-Macros/main/printer_data/config/macros.cfg -o "${KLIPPER_CONFIG}/macros.cfg"
     # Verify download was successful
     if [ -s "${KLIPPER_CONFIG}/macros.cfg" ]; then
-        echo "[OK] Macros file downloaded successfully"
+        echo -e "${GREEN}[OK]${NC} Macros file downloaded successfully"
         echo "First few lines of downloaded file:"
         head -n 3 "${KLIPPER_CONFIG}/macros.cfg"
     else
-        echo "[ERROR] Failed to download macros file. Please check your internet connection."
+        echo -e "${RED}[ERROR] Failed to download macros file. Please check your internet connection.${NC}"
         exit 1
     fi
 }
@@ -154,7 +191,7 @@ check_and_update_printer_cfg() {
     local printer_cfg="${KLIPPER_CONFIG}/printer.cfg"
     
     if [ ! -f "$printer_cfg" ]; then
-        echo "[WARNING] printer.cfg not found at ${printer_cfg}"
+        echo -e "${YELLOW}[WARNING] printer.cfg not found at ${printer_cfg}${NC}"
         echo "You will need to manually add: [include macros.cfg] to your printer.cfg"
         return
     fi
@@ -186,7 +223,7 @@ check_and_update_printer_cfg() {
 install_web_interface_config() {
     local printer_cfg="${KLIPPER_CONFIG}/printer.cfg"
     if [ ! -f "$printer_cfg" ]; then
-        echo "[WARNING] printer.cfg not found at ${printer_cfg}"
+        echo -e "${YELLOW}[WARNING] printer.cfg not found at ${printer_cfg}${NC}"
         echo "You will need to manually add web interface configuration"
         return
     fi
@@ -236,40 +273,13 @@ install_web_interface_config() {
     echo "Updated printer.cfg with web interface configuration"
 }
 
-# Function to add force_move section to printer.cfg
-add_force_move() {
-    local printer_cfg="${KLIPPER_CONFIG}/printer.cfg"
-    if [ ! -f "$printer_cfg" ]; then
-        echo "[WARNING] printer.cfg not found at ${printer_cfg}"
-        return
-    fi
-
-    cp "$printer_cfg" "${BACKUP_DIR}/printer.cfg.forcemove_${CURRENT_DATE}"
-    local working_cfg="${BACKUP_DIR}/printer.cfg.forcemove_${CURRENT_DATE}"
-    
-    if grep -q '^\[force_move\]' "$working_cfg"; then
-        if grep -q '^\[force_move\]' -A 2 "$working_cfg" | grep -q 'enable_force_move: true'; then
-            rm "$working_cfg"
-            return
-        else
-            sed -i '/^\[force_move\]/,/^$/s/enable_force_move:.*$/enable_force_move: true/' "$working_cfg"
-            if ! grep -q 'enable_force_move: true' "$working_cfg"; then
-                sed -i '/^\[force_move\]/a enable_force_move: true' "$working_cfg"
-            fi
-        fi
-    else
-        sed -i '1i[force_move]\nenable_force_move: true\n' "$working_cfg"
-    fi
-    mv "$working_cfg" "$printer_cfg"
-}
-
 # Modified to restore latest backup of specified macro files
 restore_backup() {
     local latest_macros_backup=$(ls -t ${BACKUP_DIR}/macros.cfg.backup_* 2>/dev/null | head -n1)
     if [ -n "$latest_macros_backup" ]; then
         echo "Restoring from backup: $latest_macros_backup"
         cp "$latest_macros_backup" "${KLIPPER_CONFIG}/macros.cfg"
-        echo "[OK]"
+        echo -e "${GREEN}[OK]${NC}"
     else
         echo "No backup found for macros.cfg"
         if [ -f "${KLIPPER_CONFIG}/macros.cfg" ]; then
@@ -285,7 +295,7 @@ restore_backup() {
                 if [ -n "$latest_backup" ]; then
                     echo "Restoring from backup: $latest_backup"
                     cp "$latest_backup" "${KLIPPER_CONFIG}/${file_name}"
-                    echo "[OK]"
+                    echo -e "${GREEN}[OK]${NC}"
                 fi
             fi
         done
@@ -297,29 +307,8 @@ restore_backup() {
         if [ -n "$printer_backup" ]; then
             echo "Restoring printer.cfg from backup: $printer_backup"
             cp "$printer_backup" "$printer_cfg"
-            echo "[OK]"
+            echo -e "${GREEN}[OK]${NC}"
         fi
-    fi
-}
-
-# Service management functions
-start_klipper() {
-    echo -n "Starting Klipper... "
-    sudo systemctl start $KLIPPER_SERVICE_NAME
-    echo "[OK]"
-}
-
-stop_klipper() {
-    echo -n "Stopping Klipper... "
-    sudo systemctl stop $KLIPPER_SERVICE_NAME
-    echo "[OK]"
-}
-
-# Verify script is not run as root
-verify_ready() {
-    if [ "$EUID" -eq 0 ]; then
-        echo "[ERROR] This script must not run as root"
-        exit -1
     fi
 }
 
@@ -335,39 +324,10 @@ install_kamp() {
     git clone https://github.com/kyleisah/Klipper-Adaptive-Meshing-Purging.git
     ln -s ~/Klipper-Adaptive-Meshing-Purging/Configuration "${KLIPPER_CONFIG}/KAMP"
     cp ~/Klipper-Adaptive-Meshing-Purging/Configuration/KAMP_Settings.cfg "${KLIPPER_CONFIG}/KAMP_Settings.cfg"
-    echo "KAMP installation complete!"
+    echo -e "${GREEN}KAMP installation complete!${NC}"
 }
 
-# Function to add KAMP include to printer.cfg
-add_kamp_include_to_printer_cfg() {
-    local printer_cfg="${KLIPPER_CONFIG}/printer.cfg"
-    local working_cfg="${BACKUP_DIR}/printer.cfg.kamp_include_${CURRENT_DATE}"
-
-    if [ ! -f "$printer_cfg" ]; then
-        echo "[WARNING] printer.cfg not found at ${printer_cfg}"
-        echo "You will need to manually add: [include KAMP_Settings.cfg] to your printer.cfg"
-        return
-    fi
-
-    cp "$printer_cfg" "$working_cfg"
-
-    if grep -q '^\[include KAMP_Settings\.cfg\]' "$working_cfg"; then
-        echo "Found existing [include KAMP_Settings.cfg]. No need to add another."
-    else
-        if grep -q '^\[include macros\.cfg\]' "$working_cfg"; then
-            sed -i '/\[include macros\.cfg\]/a\[include KAMP_Settings.cfg]' "$working_cfg"
-            echo "Added [include KAMP_Settings.cfg] after [include macros.cfg]"
-        else
-            sed -i '1i[include KAMP_Settings.cfg]\n' "$working_cfg"
-            echo "Added [include KAMP_Settings.cfg] to the top of printer.cfg"
-        fi
-    fi
-
-    mv "$working_cfg" "$printer_cfg"
-    echo "Updated printer.cfg with KAMP include"
-}
-
-# Function to add firmware retraction to printer.cfg
+# Add firmware retraction to printer.cfg
 add_firmware_retraction_to_printer_cfg() {
     local printer_cfg="${KLIPPER_CONFIG}/printer.cfg"
     local working_cfg="${BACKUP_DIR}/printer.cfg.firmware_retraction_${CURRENT_DATE}"
@@ -387,7 +347,7 @@ unretract_speed: 10
 "
 
     if [ ! -f "$printer_cfg" ]; then
-        echo "[WARNING] printer.cfg not found at ${printer_cfg}"
+        echo -e "${YELLOW}[WARNING] printer.cfg not found at ${printer_cfg}${NC}"
         echo "You will need to manually add the firmware retraction block to your printer.cfg"
         return
     fi
@@ -396,8 +356,8 @@ unretract_speed: 10
     echo "Created backup of printer.cfg at ${working_cfg}"
 
     if grep -q '^\[firmware_retraction\]' "$working_cfg"; then
-        echo "Firmware retraction section already exists. Skipping addition."
-        mv "$working_cfg" "$printer_cfg"
+        echo -e "${GREEN}Firmware retraction section already exists. Skipping addition.${NC}"
+        rm "$working_cfg"
         return
     fi
 
@@ -411,13 +371,77 @@ unretract_speed: 10
             {print}
         ' "$working_cfg" > "${working_cfg}.new"
         mv "${working_cfg}.new" "$printer_cfg"
-        echo "Added firmware retraction above SAVE_CONFIG section in printer.cfg"
+        echo -e "${GREEN}Added firmware retraction above SAVE_CONFIG section in printer.cfg${NC}"
     else
         # No SAVE_CONFIG marker found, append to end
         echo "$firmware_retraction_block" >> "$working_cfg"
         mv "$working_cfg" "$printer_cfg"
-        echo "Appended firmware retraction to end of printer.cfg"
+        echo -e "${GREEN}Appended firmware retraction to end of printer.cfg${NC}"
     fi
+}
+
+# Function to add extruder settings to printer.cfg
+add_extruder_settings_to_printer_cfg() {
+    local printer_cfg="${KLIPPER_CONFIG}/printer.cfg"
+    local working_cfg="${BACKUP_DIR}/printer.cfg.extruder_settings_${CURRENT_DATE}"
+
+    if [ ! -f "$printer_cfg" ]; then
+        echo -e "${YELLOW}[WARNING] printer.cfg not found at ${printer_cfg}${NC}"
+        echo "You will need to manually add the extruder settings to your printer.cfg"
+        return
+    fi
+
+    cp "$printer_cfg" "$working_cfg"
+    echo "Created backup of printer.cfg at ${working_cfg}"
+
+    # Check if extruder section exists
+    if ! grep -q '^\[extruder\]' "$working_cfg"; then
+        echo -e "${YELLOW}[WARNING] No [extruder] section found in printer.cfg${NC}"
+        echo "You will need to manually add the extruder settings to your printer.cfg"
+        rm "$working_cfg"
+        return
+    fi
+
+    # Check if max_extrude_cross_section already exists
+    if grep -q '^max_extrude_cross_section:' "$working_cfg"; then
+        echo -e "${GREEN}Extruder settings already exist. Skipping addition.${NC}"
+        rm "$working_cfg"
+        return
+    fi
+
+    # Add the three extruder settings at the end of the [extruder] section
+    awk '
+        /^\[extruder\]/ { 
+            extruder_section = 1
+            print
+            next
+        }
+        /^\[/ && extruder_section {
+            # We found the start of the next section, add our settings before it
+            print "max_extrude_cross_section: 10"
+            print "max_extrude_only_distance: 500"
+            print "max_extrude_only_velocity: 120"
+            print ""
+            extruder_section = 0
+            print
+            next
+        }
+        { print }
+        END {
+            # If we never found another section after [extruder], add settings at the end
+            if (extruder_section) {
+                print "max_extrude_cross_section: 10"
+                print "max_extrude_only_distance: 500"
+                print "max_extrude_only_velocity: 120"
+            }
+        }
+    ' "$working_cfg" > "${working_cfg}.new"
+    
+    mv "${working_cfg}.new" "$printer_cfg"
+    echo -e "${GREEN}Added extruder settings to printer.cfg${NC}"
+    echo "Added: max_extrude_cross_section: 10"
+    echo "Added: max_extrude_only_distance: 500"
+    echo "Added: max_extrude_only_velocity: 120"
 }
 
 # Function to configure Eddy NG Tap in the start print macro and GANTRY_LEVELING macro
@@ -458,9 +482,9 @@ configure_eddy_ng_tap() {
             # Uncomment the Method=rapid_scan for bed mesh
             sed -i 's/BED_MESH_CALIBRATE ADAPTIVE=1 #Method=rapid_scan/BED_MESH_CALIBRATE ADAPTIVE=1 Method=rapid_scan/' "$start_print_file"
             
-            echo "Eddy NG tapping and rapid bed mesh scanning have been enabled in your start print macro."
+            echo -e "${GREEN}Eddy NG tapping and rapid bed mesh scanning have been enabled in your start print macro.${NC}"
         else
-            echo "[WARNING] Could not find the START_PRINT macro file."
+            echo -e "${YELLOW}[WARNING] Could not find the START_PRINT macro file.${NC}"
             echo "You will need to manually uncomment the Eddy NG features in your start print macro."
         fi
         
@@ -480,39 +504,1189 @@ configure_eddy_ng_tap() {
             # Also update G29 macro for rapid scanning
             sed -i 's/BED_MESH_CALIBRATE ADAPTIVE=1       # Method=rapid_scan/BED_MESH_CALIBRATE ADAPTIVE=1 Method=rapid_scan       #/' "$macros_file"
             
-            echo "Eddy NG enhanced gantry leveling has been enabled in your GANTRY_LEVELING macro."
+            echo -e "${GREEN}Eddy NG enhanced gantry leveling has been enabled in your GANTRY_LEVELING macro.${NC}"
             echo "Both QGL and Z_TILT configurations have been updated with retry_tolerance and fine adjustment passes."
         else
-            echo "[WARNING] Could not find macros.cfg file."
+            echo -e "${YELLOW}[WARNING] Could not find macros.cfg file.${NC}"
             echo "You will need to manually uncomment the Eddy NG features in your gantry leveling macro."
         fi
         
-        echo "All Eddy NG features have been enabled in your configuration."
+        echo -e "${GREEN}All Eddy NG features have been enabled in your configuration.${NC}"
         
     else
         echo "Skipping Eddy NG features configuration."
     fi
 }
 
+# Function to add force_move section to printer.cfg
+add_force_move() {
+    local printer_cfg="${KLIPPER_CONFIG}/printer.cfg"
+    if [ ! -f "$printer_cfg" ]; then
+        echo -e "${YELLOW}[WARNING] printer.cfg not found at ${printer_cfg}${NC}"
+        return
+    fi
+
+    cp "$printer_cfg" "${BACKUP_DIR}/printer.cfg.forcemove_${CURRENT_DATE}"
+    local working_cfg="${BACKUP_DIR}/printer.cfg.forcemove_${CURRENT_DATE}"
+    
+    if grep -q '^\[force_move\]' "$working_cfg"; then
+        if grep -q '^\[force_move\]' -A 2 "$working_cfg" | grep -q 'enable_force_move: true'; then
+            echo -e "${GREEN}Force move already enabled in printer.cfg${NC}"
+            rm "$working_cfg"
+            return
+        else
+            sed -i '/^\[force_move\]/,/^$/s/enable_force_move:.*$/enable_force_move: true/' "$working_cfg"
+            if ! grep -q 'enable_force_move: true' "$working_cfg"; then
+                sed -i '/^\[force_move\]/a enable_force_move: true' "$working_cfg"
+            fi
+            echo -e "${GREEN}Updated existing force_move section${NC}"
+        fi
+    else
+        sed -i '1i[force_move]\nenable_force_move: true\n' "$working_cfg"
+        echo -e "${GREEN}Added force_move section to printer.cfg${NC}"
+    fi
+    mv "$working_cfg" "$printer_cfg"
+}
+
+# New function to install Numpy for ADXL resonance measurements
+install_numpy_for_adxl() {
+    show_header
+    echo -e "${BLUE}INSTALL NUMPY FOR ADXL RESONANCE MEASUREMENTS${NC}"
+    
+    echo "This will install numpy in the Klipper Python environment."
+    echo "Numpy is required for processing ADXL345 accelerometer data for input shaping."
+    echo "Reference: https://www.klipper3d.org/Measuring_Resonances.html"
+    echo ""
+    
+    # Check if klippy-env exists
+    if [ ! -d "${HOME}/klippy-env" ]; then
+        echo -e "${RED}Error: Klipper Python environment not found at ~/klippy-env${NC}"
+        echo "Please make sure Klipper is properly installed."
+        return
+    fi
+    
+    echo "Installing numpy (this may take a few minutes)..."
+    ${HOME}/klippy-env/bin/pip install -v numpy
+    
+    # Verify installation
+    if ${HOME}/klippy-env/bin/pip list | grep -q numpy; then
+        echo -e "${GREEN}Numpy installed successfully!${NC}"
+        echo "You can now use ADXL345-based resonance measurements with your printer."
+        echo "For configuration instructions, see: https://www.klipper3d.org/Measuring_Resonances.html"
+    else
+        echo -e "${RED}Error: Failed to install numpy. Please try again or install manually.${NC}"
+    fi
+}
+#############################################
+# NEW FUNCTIONALITY: INTERACTIVE MENU SYSTEM
+#############################################
+
+show_header() {
+    clear
+    echo -e "${CYAN}======================================================${NC}"
+    echo -e "${CYAN}    SV08 Replacement Macros Installer v${VERSION}${NC}"
+    echo -e "${CYAN}======================================================${NC}"
+    echo -e "${YELLOW}Author: ss1gohan13${NC}"
+    echo -e "${YELLOW}Last Updated: 2025-10-06${NC}"
+    echo ""
+}
+
+show_main_menu() {
+    show_header
+    echo -e "${BLUE}MAIN MENU${NC}"
+    echo "1) Install SV08 Replacement Macros"
+    echo "2) Hardware Configuration Utilities"
+    echo "3) Additional Features & Extensions"
+    echo "4) Backup Management"
+    echo "5) Diagnostics & Troubleshooting"
+    echo "6) Software Management"
+    echo "7) Uninstall"
+    echo "0) Exit"
+    echo ""
+    read -p "Select an option: " menu_choice
+    
+    case $menu_choice in
+        1) install_core_macros_menu ;;
+        2) hardware_config_menu ;;
+        3) additional_features_menu ;;
+        4) manage_backups ;;
+        5) diagnostics_menu ;;
+        6) software_management_menu ;;
+        7) uninstall_menu ;;
+        0) exit 0 ;;
+        *) echo -e "${RED}Invalid option${NC}"; sleep 2; show_main_menu ;;
+    esac
+}
+
+# Revised menu structure for macros installation
+install_core_macros_menu() {
+    show_header
+    echo -e "${BLUE}INSTALL SV08 REPLACEMENT MACROS${NC}"
+    echo "Select which macros to install:"
+    echo ""
+    echo "1) Install standard SV08 macros"
+    echo "2) Install A Better Print_Start Macro"
+    echo "3) Install A Better End Print Macro"
+    echo "0) Back to main menu"
+    echo ""
+    read -p "Select an option: " install_choice
+    
+    case $install_choice in
+        1) 
+            check_klipper
+            create_backup_dir
+            stop_klipper
+            get_user_macro_files
+            backup_existing_macros
+            install_macros
+            check_and_update_printer_cfg
+            install_web_interface_config
+            add_force_move
+            add_extruder_settings_to_printer_cfg
+            start_klipper
+            echo -e "${GREEN}Standard SV08 macros installed successfully!${NC}"
+            read -p "Press Enter to continue..." dummy
+            show_main_menu
+            ;;
+        2)
+            check_klipper
+            create_backup_dir
+            stop_klipper
+            # First install base macros if not already installed
+            if [ ! -f "${KLIPPER_CONFIG}/macros.cfg" ]; then
+                get_user_macro_files
+                backup_existing_macros
+                install_macros
+                check_and_update_printer_cfg
+            fi
+            
+            # Then install KAMP (required by Print_Start Macro)
+            echo "Installing KAMP (required for A Better Print_Start Macro)..."
+            install_kamp
+            
+            # Install Print_Start Macro
+            echo "Installing A Better Print_Start Macro..."
+            curl -sSL https://raw.githubusercontent.com/ss1gohan13/A-better-print_start-macro/main/install_start_print.sh | bash
+            
+            start_klipper
+            echo -e "${GREEN}A Better Print_Start Macro installed successfully!${NC}"
+            echo -e "${YELLOW}Remember to update your slicer's start G-code as per the documentation${NC}"
+            echo -e "${YELLOW}Visit https://github.com/ss1gohan13/A-better-print_start-macro for details${NC}"
+            read -p "Press Enter to continue..." dummy
+            show_main_menu
+            ;;
+        3)
+            check_klipper
+            create_backup_dir
+            stop_klipper
+            # First install base macros if not already installed
+            if [ ! -f "${KLIPPER_CONFIG}/macros.cfg" ]; then
+                get_user_macro_files
+                backup_existing_macros
+                install_macros
+                check_and_update_printer_cfg
+            fi
+            
+            # Install End Print Macro
+            echo "Installing A Better End Print Macro..."
+            curl -sSL https://raw.githubusercontent.com/ss1gohan13/A-Better-End-Print-Macro/main/direct_install.sh | bash
+            
+            start_klipper
+            echo -e "${GREEN}A Better End Print Macro installed successfully!${NC}"
+            echo -e "${YELLOW}Remember to update your slicer's end G-code as per the documentation${NC}"
+            echo -e "${YELLOW}Visit https://github.com/ss1gohan13/A-Better-End-Print-Macro for details${NC}"
+            read -p "Press Enter to continue..." dummy
+            show_main_menu
+            ;;
+        0) show_main_menu ;;
+        *) echo -e "${RED}Invalid option${NC}"; sleep 2; install_core_macros_menu ;;
+    esac
+}
+
+# NEW: Hardware configuration menu
+hardware_config_menu() {
+    show_header
+    echo -e "${BLUE}HARDWARE CONFIGURATION UTILITIES${NC}"
+    echo "1) Check MCU IDs"
+    echo "2) Check CAN bus devices"
+    echo "3) Enable Eddy NG tap start print function"
+    echo "4) Configure firmware retraction"
+    echo "5) Configure force_move"
+    echo "6) Add extruder settings"
+    echo "0) Back to main menu"
+    echo ""
+    read -p "Select an option: " hw_choice
+    
+    case $hw_choice in
+        1) check_mcu_ids ;;
+        2) check_can_bus ;;
+        3) configure_eddy_ng_tap; hardware_config_menu ;;
+        4) add_firmware_retraction_to_printer_cfg; hardware_config_menu ;;
+        5) add_force_move; hardware_config_menu ;;
+        6) add_extruder_settings_to_printer_cfg; hardware_config_menu ;;
+        0) show_main_menu ;;
+        *) echo -e "${RED}Invalid option${NC}"; sleep 2; hardware_config_menu ;;
+    esac
+}
+
+# ENHANCED: Function to check MCU IDs with more robust section detection
+check_mcu_ids() {
+    show_header
+    echo -e "${BLUE}MCU ID CHECKER & UPDATER${NC}"
+    echo "This will show MCU IDs of all connected devices and let you update your printer.cfg"
+    echo ""
+    
+    # First check if ls command exists
+    if ! command -v ls &> /dev/null; then
+        echo -e "${RED}Error: ls command not found${NC}"
+        read -p "Press Enter to continue..." dummy
+        hardware_config_menu
+        return
+    fi
+    
+    # Array to store all found MCU IDs with descriptive labels
+    declare -a all_mcus
+    
+    echo "Serial MCUs:"
+    echo "------------"
+    if [ -d "/dev/serial/by-id/" ]; then
+        i=1
+        while read -r line; do
+            mcu_path=$(echo "$line" | awk '{print $NF}')
+            mcu_id=$(echo "$line" | awk '{print $9}')
+            if [ -n "$mcu_id" ] && [ "$mcu_id" != "." ] && [ "$mcu_id" != ".." ]; then
+                echo "$i) $mcu_id → $mcu_path"
+                all_mcus+=("SERIAL|$mcu_id|$mcu_path")
+                i=$((i+1))
+            fi
+        done < <(ls -la /dev/serial/by-id/ 2>/dev/null | grep -v '^total' | grep -v '^d')
+    else
+        echo "No serial MCUs found"
+    fi
+    echo ""
+    
+    echo "USB MCUs:"
+    echo "---------"
+    if [ -d "/dev/serial/by-path/" ]; then
+        while read -r line; do
+            mcu_path=$(echo "$line" | awk '{print $NF}')
+            mcu_id=$(echo "$line" | awk '{print $9}')
+            if [ -n "$mcu_id" ] && [ "$mcu_id" != "." ] && [ "$mcu_id" != ".." ]; then
+                echo "$i) $mcu_id → $mcu_path"
+                all_mcus+=("USB|$mcu_id|$mcu_path")
+                i=$((i+1))
+            fi
+        done < <(ls -la /dev/serial/by-path/ 2>/dev/null | grep -v '^total' | grep -v '^d')
+    else
+        echo "No USB MCU paths found"
+    fi
+    echo ""
+    
+    # CAN bus UUIDs if available
+    if [ -f "${HOME}/klipper/scripts/canbus_query.py" ] && command -v ip &> /dev/null; then
+        echo "CAN bus devices:"
+        echo "--------------"
+        can_interfaces=($(ip -d link show | grep -i can | cut -d: -f2 | awk '{print $1}' | tr -d ' '))
+        
+        if [ ${#can_interfaces[@]} -gt 0 ]; then
+            for interface in "${can_interfaces[@]}"; do
+                echo "Querying CAN interface: $interface"
+                can_results=$("${HOME}/klippy-env/bin/python" "${HOME}/klipper/scripts/canbus_query.py" "$interface" 2>/dev/null || echo "Error querying $interface")
+                if [[ "$can_results" != *"Error"* ]]; then
+                    while read -r uuid; do
+                        if [[ -n "$uuid" ]]; then
+                            echo "$i) $uuid (CAN bus on $interface)"
+                            all_mcus+=("CAN|$uuid|$interface")
+                            i=$((i+1))
+                        fi
+                    done < <(echo "$can_results" | grep -o '[0-9a-f]\{32\}')
+                else
+                    echo "  No devices found on $interface"
+                fi
+            done
+        else
+            echo "  No CAN interfaces found"
+        fi
+        echo ""
+    fi
+    
+    # Show currently configured MCUs in printer.cfg
+    echo "Currently configured MCUs in printer.cfg:"
+    echo "----------------------------------------"
+    
+    local printer_cfg="${KLIPPER_CONFIG}/printer.cfg"
+    declare -a configured_mcus
+    
+    if [ -f "$printer_cfg" ]; then
+        while read -r mcu_line; do
+            section=$(echo "$mcu_line" | tr -d '[:space:]')
+            section=${section#\[}
+            section=${section%\]}
+            
+            if [[ "$section" == mcu* ]]; then
+                echo -e "${CYAN}Found MCU section: [$section]${NC}"
+                configured_mcus+=("$section")
+                
+                serial_line=$(sed -n "/\[$section\]/,/^\[/p" "$printer_cfg" | grep -i "serial:" | head -n 1)
+                canbus_line=$(sed -n "/\[$section\]/,/^\[/p" "$printer_cfg" | grep -i "canbus_uuid:" | head -n 1)
+                
+                echo -e "${CYAN}[$section]${NC}"
+                if [ -n "$serial_line" ]; then
+                    echo "  $serial_line"
+                elif [ -n "$canbus_line" ]; then
+                    echo "  $canbus_line"
+                else
+                    echo "  No serial/canbus configuration found"
+                fi
+                echo ""
+            fi
+        done < <(grep -i "^\s*\[mcu" "$printer_cfg")
+        
+        if [ ${#configured_mcus[@]} -eq 0 ]; then
+            echo -e "${YELLOW}No MCU sections found using standard detection.${NC}"
+        fi
+    else
+        echo -e "${RED}printer.cfg not found${NC}"
+    fi
+    
+    echo ""
+    echo -e "${YELLOW}OPTIONS:${NC}"
+    echo "1) Update MCU configuration in printer.cfg"
+    echo "2) Return to hardware menu"
+    
+    read -p "Select an option: " mcu_option
+    
+    case $mcu_option in
+        1)
+            if [ ${#all_mcus[@]} -eq 0 ]; then
+                echo -e "${RED}No MCUs found to configure${NC}"
+                read -p "Press Enter to continue..." dummy
+                hardware_config_menu
+                return
+            fi
+            
+            if [ ! -f "$printer_cfg" ]; then
+                echo -e "${RED}printer.cfg not found. Cannot update configuration.${NC}"
+                read -p "Press Enter to continue..." dummy
+                hardware_config_menu
+                return
+            fi
+            
+            local backup_file="${BACKUP_DIR}/printer.cfg.mcu_update_${CURRENT_DATE}"
+            cp "$printer_cfg" "$backup_file"
+            echo "Created backup at $backup_file"
+            
+            if [ ${#configured_mcus[@]} -gt 0 ]; then
+                echo ""
+                echo "Which MCU section would you like to update?"
+                for i in "${!configured_mcus[@]}"; do
+                    echo "$((i+1))) ${configured_mcus[$i]}"
+                done
+                echo "$((${#configured_mcus[@]}+1))) Create new MCU section"
+                
+                read -p "Select MCU number: " mcu_num
+                
+                if [[ ! "$mcu_num" =~ ^[0-9]+$ ]] || [ "$mcu_num" -lt 1 ] || [ "$mcu_num" -gt $((${#configured_mcus[@]}+1)) ]; then
+                    echo -e "${RED}Invalid selection${NC}"
+                    read -p "Press Enter to continue..." dummy
+                    hardware_config_menu
+                    return
+                fi
+                
+                if [ "$mcu_num" -eq $((${#configured_mcus[@]}+1)) ]; then
+                    echo "Select MCU type:"
+                    echo "1) Main MCU [mcu]"
+                    echo "2) Secondary MCU (e.g., [mcu z], [mcu extruder])"
+                    read -p "Select type (1/2): " mcu_type
+                    
+                    if [ "$mcu_type" -eq 1 ]; then
+                        selected_mcu="mcu"
+                    elif [ "$mcu_type" -eq 2 ]; then
+                        read -p "Enter name for secondary MCU (e.g., z, extruder): " secondary_name
+                        selected_mcu="mcu $secondary_name"
+                    else
+                        echo -e "${RED}Invalid selection${NC}"
+                        read -p "Press Enter to continue..." dummy
+                        hardware_config_menu
+                        return
+                    fi
+                    
+                    sed -i "1i[$selected_mcu]\n" "$printer_cfg"
+                    echo -e "${GREEN}Created new [$selected_mcu] section in printer.cfg${NC}"
+                else
+                    selected_mcu="${configured_mcus[$((mcu_num-1))]}"
+                fi
+            else
+                echo "No MCU sections found. Creating a new one."
+                echo "Select MCU type:"
+                echo "1) Main MCU [mcu]"
+                echo "2) Secondary MCU (e.g., [mcu z], [mcu extruder])"
+                read -p "Select type (1/2): " mcu_type
+                
+                if [ "$mcu_type" -eq 1 ]; then
+                    selected_mcu="mcu"
+                elif [ "$mcu_type" -eq 2 ]; then
+                    read -p "Enter name for secondary MCU (e.g., z, extruder): " secondary_name
+                    selected_mcu="mcu $secondary_name"
+                else
+                    echo -e "${RED}Invalid selection${NC}"
+                    read -p "Press Enter to continue..." dummy
+                    hardware_config_menu
+                    return
+                fi
+                
+                sed -i "1i[$selected_mcu]\n" "$printer_cfg"
+                echo -e "${GREEN}Created new [$selected_mcu] section in printer.cfg${NC}"
+            fi
+            
+            echo ""
+            echo "Which MCU ID would you like to use for [${selected_mcu}]?"
+            for i in "${!all_mcus[@]}"; do
+                IFS='|' read -r type id path <<< "${all_mcus[$i]}"
+                if [ "$type" == "CAN" ]; then
+                    echo "$((i+1))) $id (CAN bus on $path)"
+                else
+                    echo "$((i+1))) $id ($type)"
+                fi
+            done
+            
+            read -p "Select MCU ID number: " id_num
+            
+            if [[ ! "$id_num" =~ ^[0-9]+$ ]] || [ "$id_num" -lt 1 ] || [ "$id_num" -gt ${#all_mcus[@]} ]; then
+                echo -e "${RED}Invalid selection${NC}"
+                read -p "Press Enter to continue..." dummy
+                hardware_config_menu
+                return
+            fi
+            
+            selected_mcu_info="${all_mcus[$((id_num-1))]}"
+            IFS='|' read -r type id path <<< "$selected_mcu_info"
+            
+            local tmp_file="${BACKUP_DIR}/printer.cfg.tmp_${CURRENT_DATE}"
+            
+            if [ "$type" == "CAN" ]; then
+                cat "$printer_cfg" > "$tmp_file"
+                
+                selected_mcu_escaped=$(echo "$selected_mcu" | sed 's/ /\\ /g')
+                
+                sed -i "/^\[$selected_mcu_escaped\]/,/^\[/ {/^\[$selected_mcu_escaped\]/b; /^\[/b; /^serial:/d; /^canbus_uuid:/d}" "$tmp_file" 2>/dev/null || true
+                
+                if [[ "$selected_mcu" == *" "* ]]; then
+                    awk -v mcu="[$selected_mcu]" -v uuid="canbus_uuid: $id" '
+                    $0 ~ mcu {print; print uuid; next}
+                    {print}
+                    ' "$tmp_file" > "${tmp_file}.new"
+                    mv "${tmp_file}.new" "$tmp_file"
+                else
+                    sed -i "/^\[$selected_mcu\]/a canbus_uuid: $id" "$tmp_file"
+                fi
+                
+                echo -e "${GREEN}Updated [$selected_mcu] with CAN bus UUID: $id${NC}"
+            else
+                cat "$printer_cfg" > "$tmp_file"
+                
+                selected_mcu_escaped=$(echo "$selected_mcu" | sed 's/ /\\ /g')
+                
+                sed -i "/^\[$selected_mcu_escaped\]/,/^\[/ {/^\[$selected_mcu_escaped\]/b; /^\[/b; /^serial:/d; /^canbus_uuid:/d}" "$tmp_file" 2>/dev/null || true
+                
+                if [[ "$selected_mcu" == *" "* ]]; then
+                    awk -v mcu="[$selected_mcu]" -v serial="serial: /dev/serial/by-id/$id" '
+                    $0 ~ mcu {print; print serial; next}
+                    {print}
+                    ' "$tmp_file" > "${tmp_file}.new"
+                    mv "${tmp_file}.new" "$tmp_file"
+                else
+                    sed -i "/^\[$selected_mcu\]/a serial: /dev/serial/by-id/$id" "$tmp_file"
+                fi
+                
+                echo -e "${GREEN}Updated [$selected_mcu] with serial: /dev/serial/by-id/$id${NC}"
+            fi
+            
+            mv "$tmp_file" "$printer_cfg"
+            echo -e "${GREEN}MCU configuration updated successfully!${NC}"
+            echo "Backup of previous configuration saved at: $backup_file"
+            
+            read -p "Press Enter to continue..." dummy
+            check_mcu_ids
+            ;;
+        2|*)
+            hardware_config_menu
+            ;;
+    esac
+}
+
+# Function to check CAN bus devices
+check_can_bus() {
+    show_header
+    echo -e "${BLUE}CAN BUS DEVICE CHECKER${NC}"
+    echo "Checking for CAN interfaces and devices..."
+    echo ""
+    
+    if ! command -v ip &> /dev/null; then
+        echo -e "${RED}Error: ip command not found${NC}"
+        read -p "Press Enter to continue..." dummy
+        hardware_config_menu
+        return
+    fi
+    
+    can_interfaces=($(ip -d link show | grep -i can | cut -d: -f2 | awk '{print $1}' | tr -d ' '))
+    
+    if [ ${#can_interfaces[@]} -eq 0 ]; then
+        echo -e "${YELLOW}No CAN interfaces found${NC}"
+        read -p "Press Enter to continue..." dummy
+        hardware_config_menu
+        return
+    fi
+    
+    for interface in "${can_interfaces[@]}"; do
+        echo -e "${CYAN}Interface: $interface${NC}"
+        echo "Status: $(ip link show $interface | grep -o 'state [A-Z]*' | cut -d' ' -f2)"
+        
+        if [ -f "${HOME}/klipper/scripts/canbus_query.py" ]; then
+            echo "Devices found:"
+            can_results=$("${HOME}/klippy-env/bin/python" "${HOME}/klipper/scripts/canbus_query.py" "$interface" 2>/dev/null || echo "Error querying $interface")
+            if [[ "$can_results" != *"Error"* ]]; then
+                while read -r uuid; do
+                    if [[ -n "$uuid" ]]; then
+                        echo "  - UUID: $uuid"
+                    fi
+                done < <(echo "$can_results" | grep -o '[0-9a-f]\{32\}')
+            else
+                echo "  No devices found or error querying interface"
+            fi
+        else
+            echo "  Cannot query devices (canbus_query.py not found)"
+        fi
+        echo ""
+    done
+    
+    read -p "Press Enter to continue..." dummy
+    hardware_config_menu
+}
+
+# Additional features menu
+additional_features_menu() {
+    show_header
+    echo -e "${BLUE}ADDITIONAL FEATURES & EXTENSIONS${NC}"
+    echo "1) Install Print Start Macro"
+    echo "2) Install End Print Macro"
+    echo "3) Install KAMP"
+    echo "4) Enable Eddy NG tap start print function"
+    echo "5) Install Numpy for ADXL Resonance Measurements"
+    echo "6) Install Crowsnest (webcam streaming)"
+    echo "7) Install Moonraker-Timelapse"
+    echo "0) Back to main menu"
+    echo ""
+    read -p "Select an option: " feature_choice
+    
+    case $feature_choice in
+        1)
+            echo "Installing A Better Print_Start Macro..."
+            install_kamp
+            curl -sSL https://raw.githubusercontent.com/ss1gohan13/A-better-print_start-macro/main/install_start_print.sh | bash
+            echo -e "${GREEN}Print_Start macro installed successfully!${NC}"
+            read -p "Press Enter to continue..." dummy
+            additional_features_menu
+            ;;
+        2)
+            echo "Installing A Better End Print Macro..."
+            curl -sSL https://raw.githubusercontent.com/ss1gohan13/A-Better-End-Print-Macro/main/direct_install.sh | bash
+            echo -e "${GREEN}End Print macro installed successfully!${NC}"
+            read -p "Press Enter to continue..." dummy
+            additional_features_menu
+            ;;
+        3)
+            install_kamp
+            read -p "Press Enter to continue..." dummy
+            additional_features_menu
+            ;;
+        4)
+            check_klipper
+            create_backup_dir
+            stop_klipper
+            configure_eddy_ng_tap
+            start_klipper
+            echo -e "${GREEN}Eddy NG tap start print function enabled successfully!${NC}"
+            read -p "Press Enter to continue..." dummy
+            additional_features_menu
+            ;;
+        5)
+            install_numpy_for_adxl
+            read -p "Press Enter to continue..." dummy
+            additional_features_menu
+            ;;
+        6)
+            echo "Installing Crowsnest..."
+            cd ~
+            git clone https://github.com/mainsail-crew/crowsnest.git
+            cd crowsnest
+            sudo bash ./tools/install.sh
+            echo -e "${GREEN}Crowsnest installation complete!${NC}"
+            read -p "Press Enter to continue..." dummy
+            additional_features_menu
+            ;;
+        7)
+            echo "Installing Moonraker-Timelapse..."
+            cd ~
+            git clone https://github.com/mainsail-crew/moonraker-timelapse.git
+            cd moonraker-timelapse
+            bash ./install.sh
+            echo -e "${GREEN}Moonraker-Timelapse installation complete!${NC}"
+            read -p "Press Enter to continue..." dummy
+            additional_features_menu
+            ;;
+        0) show_main_menu ;;
+        *) echo -e "${RED}Invalid option${NC}"; sleep 2; additional_features_menu ;;
+    esac
+}
+# Backup management menu
+manage_backups() {
+    show_header
+    echo -e "${BLUE}BACKUP MANAGEMENT${NC}"
+    echo "1) List all backups"
+    echo "2) Restore from backup"
+    echo "3) Clean old backups"
+    echo "0) Back to main menu"
+    echo ""
+    read -p "Select an option: " backup_choice
+    
+    case $backup_choice in
+        1) list_backups ;;
+        2) restore_from_backup ;;
+        3) clean_old_backups ;;
+        0) show_main_menu ;;
+        *) echo -e "${RED}Invalid option${NC}"; sleep 2; manage_backups ;;
+    esac
+}
+
+list_backups() {
+    show_header
+    echo -e "${BLUE}ALL BACKUPS${NC}"
+    echo ""
+    
+    if [ ! -d "$BACKUP_DIR" ]; then
+        echo -e "${YELLOW}No backup directory found${NC}"
+        read -p "Press Enter to continue..." dummy
+        manage_backups
+        return
+    fi
+    
+    backup_files=($(find "$BACKUP_DIR" -name "*.backup_*" -type f | sort -r))
+    
+    if [ ${#backup_files[@]} -eq 0 ]; then
+        echo -e "${YELLOW}No backup files found${NC}"
+    else
+        echo "Found ${#backup_files[@]} backup files:"
+        echo ""
+        for backup in "${backup_files[@]}"; do
+            filename=$(basename "$backup")
+            filesize=$(du -h "$backup" | cut -f1)
+            echo "  $filename ($filesize)"
+        done
+    fi
+    
+    read -p "Press Enter to continue..." dummy
+    manage_backups
+}
+
+restore_from_backup() {
+    show_header
+    echo -e "${BLUE}RESTORE FROM BACKUP${NC}"
+    echo ""
+    
+    if [ ! -d "$BACKUP_DIR" ]; then
+        echo -e "${YELLOW}No backup directory found${NC}"
+        read -p "Press Enter to continue..." dummy
+        manage_backups
+        return
+    fi
+    
+    backup_files=($(find "$BACKUP_DIR" -name "*.backup_*" -type f | sort -r))
+    
+    if [ ${#backup_files[@]} -eq 0 ]; then
+        echo -e "${YELLOW}No backup files found${NC}"
+        read -p "Press Enter to continue..." dummy
+        manage_backups
+        return
+    fi
+    
+    echo "Select a backup to restore:"
+    echo ""
+    for i in "${!backup_files[@]}"; do
+        filename=$(basename "${backup_files[$i]}")
+        echo "$((i+1))) $filename"
+    done
+    echo "0) Cancel"
+    
+    read -p "Select backup number: " backup_num
+    
+    if [ "$backup_num" -eq 0 ]; then
+        manage_backups
+        return
+    fi
+    
+    if [[ ! "$backup_num" =~ ^[0-9]+$ ]] || [ "$backup_num" -lt 1 ] || [ "$backup_num" -gt ${#backup_files[@]} ]; then
+        echo -e "${RED}Invalid selection${NC}"
+        read -p "Press Enter to continue..." dummy
+        restore_from_backup
+        return
+    fi
+    
+    selected_backup="${backup_files[$((backup_num-1))]}"
+    filename=$(basename "$selected_backup")
+    
+    # Determine target file based on backup name
+    if [[ "$filename" == printer.cfg.backup_* ]]; then
+        target_file="${KLIPPER_CONFIG}/printer.cfg"
+    elif [[ "$filename" == macros.cfg.backup_* ]]; then
+        target_file="${KLIPPER_CONFIG}/macros.cfg"
+    else
+        # Extract original filename from backup name
+        original_name=$(echo "$filename" | sed 's/\.backup_[0-9]*_[0-9]*$//')
+        target_file="${KLIPPER_CONFIG}/$original_name"
+    fi
+    
+    echo ""
+    echo "This will restore:"
+    echo "  From: $filename"
+    echo "  To: $(basename "$target_file")"
+    echo ""
+    read -p "Are you sure? (y/N): " confirm
+    
+    if [[ "$confirm" =~ ^[Yy]$ ]]; then
+        cp "$selected_backup" "$target_file"
+        echo -e "${GREEN}Backup restored successfully!${NC}"
+        echo "Restarting Klipper..."
+        sudo systemctl restart $KLIPPER_SERVICE_NAME
+    else
+        echo "Restore cancelled."
+    fi
+    
+    read -p "Press Enter to continue..." dummy
+    manage_backups
+}
+
+clean_old_backups() {
+    show_header
+    echo -e "${BLUE}CLEAN OLD BACKUPS${NC}"
+    echo ""
+    
+    if [ ! -d "$BACKUP_DIR" ]; then
+        echo -e "${YELLOW}No backup directory found${NC}"
+        read -p "Press Enter to continue..." dummy
+        manage_backups
+        return
+    fi
+    
+    echo "How many days of backups would you like to keep?"
+    echo "Backups older than this will be deleted."
+    read -p "Days to keep (default: 7): " days_to_keep
+    
+    # Default to 7 days if no input
+    days_to_keep=${days_to_keep:-7}
+    
+    if [[ ! "$days_to_keep" =~ ^[0-9]+$ ]]; then
+        echo -e "${RED}Invalid number${NC}"
+        read -p "Press Enter to continue..." dummy
+        clean_old_backups
+        return
+    fi
+    
+    old_backups=($(find "$BACKUP_DIR" -name "*.backup_*" -type f -mtime +$days_to_keep))
+    
+    if [ ${#old_backups[@]} -eq 0 ]; then
+        echo -e "${GREEN}No old backups found to clean${NC}"
+    else
+        echo "Found ${#old_backups[@]} backup(s) older than $days_to_keep days:"
+        echo ""
+        for backup in "${old_backups[@]}"; do
+            echo "  $(basename "$backup")"
+        done
+        echo ""
+        read -p "Delete these backups? (y/N): " confirm
+        
+        if [[ "$confirm" =~ ^[Yy]$ ]]; then
+            for backup in "${old_backups[@]}"; do
+                rm "$backup"
+            done
+            echo -e "${GREEN}Old backups cleaned successfully!${NC}"
+        else
+            echo "Cleanup cancelled."
+        fi
+    fi
+    
+    read -p "Press Enter to continue..." dummy
+    manage_backups
+}
+
+# Diagnostics menu
+diagnostics_menu() {
+    show_header
+    echo -e "${BLUE}DIAGNOSTICS & TROUBLESHOOTING${NC}"
+    echo "1) Check Klipper status"
+    echo "2) View Klipper logs"
+    echo "3) Verify configuration"
+    echo "4) Run full system diagnostics"
+    echo "0) Back to main menu"
+    echo ""
+    read -p "Select an option: " diag_choice
+    
+    case $diag_choice in
+        1) check_klipper_status ;;
+        2) view_klipper_logs ;;
+        3) verify_configuration ;;
+        4) run_full_diagnostics ;;
+        0) show_main_menu ;;
+        *) echo -e "${RED}Invalid option${NC}"; sleep 2; diagnostics_menu ;;
+    esac
+}
+
+check_klipper_status() {
+    show_header
+    echo -e "${BLUE}KLIPPER STATUS${NC}"
+    
+    echo "Checking Klipper service status..."
+    sudo systemctl status $KLIPPER_SERVICE_NAME
+    
+    echo ""
+    read -p "Press Enter to continue..." dummy
+    diagnostics_menu
+}
+
+view_klipper_logs() {
+    show_header
+    echo -e "${BLUE}KLIPPER LOGS${NC}"
+    
+    echo "Last 50 log entries from Klipper:"
+    sudo journalctl -u $KLIPPER_SERVICE_NAME -n 50 --no-pager
+    
+    echo ""
+    echo "1) View more log entries"
+    echo "2) View only errors"
+    echo "0) Back to diagnostics menu"
+	
+    read -p "Select an option: " log_choice
+    
+    case $log_choice in
+        1)
+            echo "Last 200 log entries from Klipper:"
+            sudo journalctl -u $KLIPPER_SERVICE_NAME -n 200 --no-pager
+            ;;
+        2)
+            echo "Errors from Klipper log:"
+            sudo journalctl -u $KLIPPER_SERVICE_NAME -n 500 --no-pager | grep -i error
+            ;;
+        0)
+            diagnostics_menu
+            return
+            ;;
+        *)
+            echo -e "${RED}Invalid option${NC}"
+            ;;
+    esac
+    
+    read -p "Press Enter to continue..." dummy
+    diagnostics_menu
+}
+
+verify_configuration() {
+    show_header
+    echo -e "${BLUE}CONFIGURATION VERIFICATION${NC}"
+    
+    local errors=0
+    
+    # Check that macros.cfg exists
+    if [ ! -f "${KLIPPER_CONFIG}/macros.cfg" ]; then
+        echo -e "${RED}[ERROR] macros.cfg not found${NC}"
+        errors=$((errors+1))
+    else
+        echo -e "${GREEN}[OK] macros.cfg exists${NC}"
+    fi
+    
+    # Check that printer.cfg includes macros.cfg
+    if [ -f "${KLIPPER_CONFIG}/printer.cfg" ]; then
+        if ! grep -q '^\[include macros\.cfg\]' "${KLIPPER_CONFIG}/printer.cfg"; then
+            echo -e "${YELLOW}[WARNING] printer.cfg does not include macros.cfg${NC}"
+            errors=$((errors+1))
+        else
+            echo -e "${GREEN}[OK] printer.cfg includes macros.cfg${NC}"
+        fi
+    else
+        echo -e "${RED}[ERROR] printer.cfg not found${NC}"
+        errors=$((errors+1))
+    fi
+    
+    # Check Klipper service status
+    if ! systemctl is-active --quiet $KLIPPER_SERVICE_NAME; then
+        echo -e "${RED}[ERROR] Klipper service not running${NC}"
+        errors=$((errors+1))
+    else
+        echo -e "${GREEN}[OK] Klipper service is running${NC}"
+    fi
+    
+    echo ""
+    echo "Checking for required includes..."
+    
+    # Check for mandatory includes
+    if [ -f "${KLIPPER_CONFIG}/printer.cfg" ]; then
+        for include in "macros.cfg"; do
+            if grep -q "^\[include $include\]" "${KLIPPER_CONFIG}/printer.cfg"; then
+                echo -e "${GREEN}[OK] Found include for $include${NC}"
+            else
+                echo -e "${YELLOW}[WARNING] Missing include for $include${NC}"
+            fi
+        done
+    fi
+    
+    echo ""
+    if [ $errors -eq 0 ]; then
+        echo -e "${GREEN}[SUCCESS] All checks passed! Configuration appears to be working correctly.${NC}"
+    else
+        echo -e "${YELLOW}[WARNING] Found $errors potential issue(s) with your installation.${NC}"
+    fi
+    
+    read -p "Press Enter to continue..." dummy
+    diagnostics_menu
+}
+
+run_full_diagnostics() {
+    show_header
+    echo -e "${BLUE}FULL SYSTEM DIAGNOSTICS${NC}"
+    
+    echo "This will perform a comprehensive check of your system."
+    echo "It may take a few moments to complete."
+    echo ""
+    read -p "Press Enter to start diagnostics..." dummy
+    
+    echo -e "\n${CYAN}SYSTEM INFORMATION${NC}"
+    echo "----------------------"
+    uname -a
+    
+    echo -e "\n${CYAN}DISK SPACE${NC}"
+    echo "-----------"
+    df -h /
+    
+    echo -e "\n${CYAN}MEMORY USAGE${NC}"
+    echo "------------"
+    free -h
+    
+    echo -e "\n${CYAN}KLIPPER SERVICE STATUS${NC}"
+    echo "---------------------"
+    systemctl status $KLIPPER_SERVICE_NAME --no-pager
+    
+    echo -e "\n${CYAN}CONFIGURATION FILES${NC}"
+    echo "------------------"
+    find "$KLIPPER_CONFIG" -maxdepth 1 -name "*.cfg" | sort
+    
+    echo -e "\n${CYAN}CONFIG INCLUDES${NC}"
+    echo "---------------"
+    if [ -f "${KLIPPER_CONFIG}/printer.cfg" ]; then
+        grep "^\[include" "${KLIPPER_CONFIG}/printer.cfg"
+    else
+        echo "printer.cfg not found"
+    fi
+    
+    echo -e "\n${CYAN}AVAILABLE MACROS${NC}"
+    echo "----------------"
+    if [ -f "${KLIPPER_CONFIG}/macros.cfg" ]; then
+        grep -n "\[gcode_macro" "${KLIPPER_CONFIG}/macros.cfg" | cut -d[ -f2 | cut -d] -f1 | sort
+    else
+        echo "macros.cfg not found"
+    fi
+    
+    echo -e "\n${CYAN}RECENT ERRORS${NC}"
+    echo "-------------"
+    sudo journalctl -u $KLIPPER_SERVICE_NAME -n 50 --no-pager | grep -i error
+    
+    echo -e "\n${GREEN}Diagnostics complete!${NC}"
+    read -p "Press Enter to continue..." dummy
+    diagnostics_menu
+}
+
+# Software management menu
+software_management_menu() {
+    show_header
+    echo -e "${BLUE}SOFTWARE MANAGEMENT${NC}"
+    echo "1) Install Kiauh"
+    echo "2) Update SV08 macros"
+    echo "3) Check for system updates"
+    echo "0) Back to main menu"
+    echo ""
+    read -p "Select an option: " sw_choice
+    
+    case $sw_choice in
+        1) install_kiauh ;;
+        2) update_macros ;;
+        3) check_system_updates ;;
+        0) show_main_menu ;;
+        *) echo -e "${RED}Invalid option${NC}"; sleep 2; software_management_menu ;;
+    esac
+}
+
+# Function to install Kiauh
+install_kiauh() {
+    show_header
+    echo -e "${BLUE}INSTALL KIAUH${NC}"
+    echo "Kiauh is the Klipper Installation And Update Helper"
+    echo ""
+    
+    if [ -d "${HOME}/kiauh" ]; then
+        echo "Kiauh is already installed."
+        echo "1) Launch Kiauh"
+        echo "2) Update Kiauh"
+        echo "0) Back to software menu"
+        
+        read -p "Select option: " kiauh_option
+        
+        case $kiauh_option in
+            1)
+                cd ~/kiauh
+                ./kiauh.sh
+                ;;
+            2)
+                cd ~/kiauh
+                git pull
+                echo -e "${GREEN}Kiauh updated successfully!${NC}"
+                ;;
+            0)
+                software_management_menu
+                return
+                ;;
+            *)
+                echo -e "${RED}Invalid option${NC}"
+                ;;
+        esac
+    else
+        echo "Installing Kiauh..."
+        cd ~
+        git clone https://github.com/th33xitus/kiauh.git
+        
+        if [ -d "${HOME}/kiauh" ]; then
+            echo -e "${GREEN}Kiauh installed successfully!${NC}"
+            echo "Would you like to launch Kiauh now?"
+            read -p "(y/N): " launch_kiauh
+            
+            if [[ "$launch_kiauh" =~ ^[Yy]$ ]]; then
+                cd ~/kiauh
+                ./kiauh.sh
+            fi
+        else
+            echo -e "${RED}Failed to install Kiauh. Please check your internet connection.${NC}"
+        fi
+    fi
+    
+    read -p "Press Enter to continue..." dummy
+    software_management_menu
+}
+
+update_macros() {
+    show_header
+    echo -e "${BLUE}UPDATE SV08 MACROS${NC}"
+    
+    echo "This will update your SV08 macros to the latest version."
+    echo "Your current macros will be backed up first."
+    
+    read -p "Continue with update? (y/N): " confirm_update
+    
+    if [[ "$confirm_update" =~ ^[Yy]$ ]]; then
+        check_klipper
+        create_backup_dir
+        stop_klipper
+        backup_existing_macros
+        install_macros
+        start_klipper
+        
+        echo -e "${GREEN}SV08 macros updated successfully!${NC}"
+    else
+        echo "Update cancelled."
+    fi
+    
+    read -p "Press Enter to continue..." dummy
+    software_management_menu
+}
+
+check_system_updates() {
+    show_header
+    echo -e "${BLUE}CHECK FOR SYSTEM UPDATES${NC}"
+    
+    echo "Checking for system updates..."
+    sudo apt update
+    
+    echo -e "\n${CYAN}Available Updates:${NC}"
+    apt list --upgradable
+    
+    echo ""
+    read -p "Would you like to install available updates? (y/N): " install_updates
+    
+    if [[ "$install_updates" =~ ^[Yy]$ ]]; then
+        echo "Installing updates... This may take a while."
+        sudo apt upgrade -y
+        echo -e "${GREEN}System updates complete!${NC}"
+    else
+        echo "Update installation cancelled."
+    fi
+    
+    read -p "Press Enter to continue..." dummy
+    software_management_menu
+}
+
+# Uninstall menu
+uninstall_menu() {
+    show_header
+    echo -e "${RED}UNINSTALL SV08 MACROS${NC}"
+    
+    echo "This will remove the SV08 replacement macros and restore your previous configuration."
+    echo "Are you sure you want to uninstall?"
+    
+    read -p "Type 'YES' to confirm: " confirm
+    
+    if [ "$confirm" = "YES" ]; then
+        check_klipper
+        create_backup_dir
+        stop_klipper
+        get_user_macro_files
+        restore_backup
+        start_klipper
+        
+        echo -e "${GREEN}Uninstallation complete! Original configuration has been restored.${NC}"
+    else
+        echo "Uninstallation cancelled."
+    fi
+    
+    read -p "Press Enter to continue..." dummy
+    show_main_menu
+}
+
 # Declare global array for backup files
 declare -a BACKUP_FILES
 
-# Main installation/uninstallation logic
+# MAIN EXECUTION
 verify_ready
-check_klipper
-create_backup_dir
-stop_klipper
-get_user_macro_files
 
-if [ ! $UNINSTALL ]; then
-    echo "Installing SV08 Replacement Macros..."
+if [ $UNINSTALL ]; then
+    check_klipper
+    create_backup_dir
+    stop_klipper
+    get_user_macro_files
+    restore_backup
+    start_klipper
+    echo -e "${GREEN}Uninstallation complete! Original configuration has been restored.${NC}"
+elif [ $MENU_MODE -eq 1 ]; then
+    # Interactive menu mode (default)
+    show_main_menu
+else
+    # Linear installation flow
+    check_klipper
+    create_backup_dir
+    stop_klipper
+    get_user_macro_files
     backup_existing_macros
     install_macros
     check_and_update_printer_cfg
     install_web_interface_config
     add_force_move
     start_klipper
-    echo "Installation complete! Please check your printer's web interface to verify the changes."
+    echo -e "${GREEN}Installation complete! Please check your printer's web interface to verify the changes.${NC}"
 
     echo ""
     echo "Would you like to install A Better Print_Start Macro?"
@@ -524,12 +1698,19 @@ if [ ! $UNINSTALL ]; then
         echo "Installing KAMP and A Better Print_Start Macro..."
         install_kamp
         curl -sSL https://raw.githubusercontent.com/ss1gohan13/A-better-print_start-macro/main/install_start_print.sh | bash
-        add_kamp_include_to_printer_cfg
-        add_firmware_retraction_to_printer_cfg
-        configure_eddy_ng_tap  # Configure Eddy NG features
         echo ""
-        echo "Print_Start macro and KAMP have been installed!"
+        echo -e "${GREEN}Print_Start macro and KAMP have been installed!${NC}"
         echo "Please visit https://github.com/ss1gohan13/A-better-print_start-macro for instructions on configuring your slicer settings."
+        
+        # Add numpy installation for ADXL resonance measurements
+        echo ""
+        echo "Would you like to install numpy for ADXL resonance measurements?"
+        echo "This is recommended if you plan to use input shaping with an ADXL345 accelerometer."
+        read -p "Install numpy? (y/N): " install_numpy
+        
+        if [[ "$install_numpy" =~ ^[Yy]$ ]]; then
+            install_numpy_for_adxl
+        fi
     fi
 
     echo ""
@@ -543,12 +1724,10 @@ if [ ! $UNINSTALL ]; then
         cd ~
         curl -sSL https://raw.githubusercontent.com/ss1gohan13/A-Better-End-Print-Macro/main/direct_install.sh | bash
         echo ""
-        echo "End Print macro has been installed!"
+        echo -e "${GREEN}End Print macro has been installed!${NC}"
         echo "Please visit https://github.com/ss1gohan13/A-Better-End-Print-Macro for instructions on configuring your slicer settings."
     fi
-else
-    echo "Uninstalling SV08 Replacement Macros..."
-    restore_backup
-    start_klipper
-    echo "Uninstallation complete! Original configuration has been restored."
+    
+    echo ""
+    echo -e "${CYAN}TIP: If you prefer the menu-driven interface, just run this script without the -l flag!${NC}"
 fi
