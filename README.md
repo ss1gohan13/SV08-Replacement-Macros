@@ -45,6 +45,14 @@ This will:
 
 </details>
 
+10/8/25
+
+Script has been completely overhauled. No longer walks use through each item to install. Now user is prompted with a menu of options to install. 
+
+Primary functions of installation are still there. (Install Start_Print? KAMP will auto install and take care of printer.cfg settings). But, the fucntionality to install indiviaul items are now there. 
+
+More macro improvements
+
 # Changes
 
 - _auto_zoffset and _CALIBRATION_ZOFFSET are temp removed until auto z offset is working
@@ -73,3 +81,5 @@ This will:
 - PAUSE replaced - add [include fluidd.cfg] or [include mainsail.cfg] to the printer.cfg, ~~customize _CLIENT_VARIABLES to specific requested locations~~ _CLIENT_VARIABLE now included with macros.cfg. SV08 max values in place. *WARNING* If you are not on an SV08, update the locations as needed
 - START_PRINT replaced - see the [start print macro](https://github.com/ss1gohan13/A-better-print_start-macro-SV08) replacement for details
 - TEST_BELT - ~~temp removed until confirmed working - Acquire Shake Tune and run calibration as workaround~~ Replaced with SHAPER_CALIBRATE
+- LOAD_FILAMENT - Remastered
+- UNLOAD_FILAMANET - Remastered
