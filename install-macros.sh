@@ -357,6 +357,10 @@ install_kamp() {
     ln -s ~/Klipper-Adaptive-Meshing-Purging/Configuration "${KLIPPER_CONFIG}/KAMP"
     cp ~/Klipper-Adaptive-Meshing-Purging/Configuration/KAMP_Settings.cfg "${KLIPPER_CONFIG}/KAMP_Settings.cfg"
     echo -e "${GREEN}KAMP installation complete!${NC}"
+    
+    # ADD THIS LINE: Automatically add firmware retraction after KAMP installation
+    echo "Adding firmware retraction configuration..."
+    add_firmware_retraction_to_printer_cfg
 }
 
 # Add firmware retraction to printer.cfg
