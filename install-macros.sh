@@ -204,8 +204,40 @@ check_and_update_printer_cfg() {
     
     echo "Processing printer.cfg file..."
 
+    # Comment out the hardcoded Macro.cfg (existing behavior)
     sed -i 's/^\[include Macro\.cfg\]/# [include Macro.cfg]/' "$working_cfg"
     
+    # NEW: Comment out user-specified macro files
+    if [ -n "$USER_MACRO_FILES" ]; then
+        read -ra USER_FILES <<< "$USER_MACRO_FILES"
+        for file_name in "${USER_FILES[@]}"; do
+            # Remove any path and get just the filename
+            base_name=$(basename "$file_name")
+            # Escape dots for sed regex
+            escaped_name=$(echo "$base_name" | sed 's/\./\\./g')
+            # Comment out this include line
+            sed -i "s/^\[include ${escaped_name}\]/# [include ${base_name}]/" "$working_cfg"
+            echo "Commented out [include ${base_name}]"
+        done
+    fi
+    
+    # Also comment out any files in BACKUP_FILES array
+    if [ -n "${BACKUP_FILES}" ]; then
+        for file_name in "${BACKUP_FILES[@]}"; do
+            # Remove any path and get just the filename
+            base_name=$(basename "$file_name")
+            # Skip if it's macros.cfg since we want that to remain active
+            if [ "$base_name" != "macros.cfg" ]; then
+                # Escape dots for sed regex
+                escaped_name=$(echo "$base_name" | sed 's/\./\\./g')
+                # Comment out this include line
+                sed -i "s/^\[include ${escaped_name}\]/# [include ${base_name}]/" "$working_cfg"
+                echo "Commented out [include ${base_name}]"
+            fi
+        done
+    fi
+    
+    # Check if macros.cfg include already exists (existing behavior)
     if grep -q '^\[include macros\.cfg\]' "$working_cfg"; then
         echo "Found existing [include macros.cfg]. No need to add another."
     else
@@ -213,12 +245,12 @@ check_and_update_printer_cfg() {
         echo "Added [include macros.cfg] to the top of printer.cfg"
     fi
 
+    # Remove any commented duplicate macros.cfg lines (existing behavior)
     sed -i 's/^# \[include macros\.cfg\]//' "$working_cfg"
 
     mv "$working_cfg" "$printer_cfg"
     echo "Updated printer.cfg successfully"
 }
-
 # Function to install web interface configuration
 install_web_interface_config() {
     local printer_cfg="${KLIPPER_CONFIG}/printer.cfg"
