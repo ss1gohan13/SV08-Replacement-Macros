@@ -378,7 +378,7 @@ retract_speed: 60
 unretract_extra_length: 0
 #   The length (in mm) of *additional* filament to add when
 #   unretracting.
-unretract_speed: 10
+unretract_speed: 60
 #   The speed of unretraction, in mm/s. The default is 10 mm/s.
 "
 
