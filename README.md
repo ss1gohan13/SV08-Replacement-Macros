@@ -1,4 +1,4 @@
-# SV08-Replacement-Macros (WIP)
+# Klipper-Macro-Installer (WIP)
 
 <details>
 <summary>How to install the macros</summary>
