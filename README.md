@@ -1,85 +1,177 @@
-# SV08-Replacement-Macros (WIP)
+## How to Install the Macros
 
-<details>
-<summary>How to install the macros</summary>
+1. **SSH into your printer** using your preferred SSH client.
+2. **Run the following commands:**
+   ```bash
+   cd ~
+   git clone https://github.com/ss1gohan13/SV08-Replacement-Macros.git
+   cd SV08-Replacement-Macros
+   ./install-macros.sh
+   ```
 
-1) SSH into your printer using your prefered ssh client
-2) Run the following command:
+**What This Does:**
+- Stops the Klipper service for safe modification.
+- Detects your Klipper config directory, including custom paths (supports `-c` flag).
+- Backs up your existing `macros.cfg`, `printer.cfg`, and any user-specified macro files into `~/printer_data/config/backup/`.
+- Downloads and installs the latest `macros.cfg` from GitHub.
+- Updates your `printer.cfg` to include the new macros, and comments out any conflicting/old macro includes.
+- (If chosen) Installs web interface configuration for Fluidd or Mainsail.
+- (If chosen) Installs KAMP (Klipper Adaptive Meshing & Purging) and recommended settings.
+- (If chosen) Installs "A Better Print_Start Macro" and/or "A Better End Print Macro" via their install scripts.
+- Adds/updates crucial Klipper sections such as `[force_move]`, `[firmware_retraction]`, and extruder safety limits.
+- Adds hardware configuration utilities, stepper driver setup, MCU/CAN device detection, and more.
+- Restarts the Klipper service.
+- Provides an interactive menu for additional features, diagnostics, and hardware/software utilities.
+- **All changes are reversible via the uninstall process and backup restoration.**
 
-```
-cd ~
-git clone https://github.com/ss1gohan13/SV08-Replacement-Macros.git
-cd SV08-Replacement-Macros
-./install-macros.sh
-```
+---
 
-This will:
+## Detailed List of Changes Made
 
-1) Stop the Klipper service
-2) Download the macro config from the github
-3) Backup the existing macro to `~/printer_data/config/backup/`
-4) Install the replacement macro
-5) Restart the klipper service
-6) OPTIONAL: Ask to install a replacement start print macro
+- **Backups:**  
+  All affected config files (`macros.cfg`, `printer.cfg`, user macros) are backed up to `~/printer_data/config/backup/` with timestamps before any modification.
 
-</details>
+- **Macro Installation:**  
+  - Replaces or installs `macros.cfg` in the Klipper config directory.
+  - Updates `printer.cfg` to ensure `[include macros.cfg]` is present at the top.
+  - Comments out old or conflicting `[include ...]` macro lines.
+  - Optionally installs advanced print macros (“A Better Print_Start Macro” and “A Better End Print Macro”).
 
-<details>
-<summary>How to uninstall the macros</summary>
+- **Web Interface Integration:**  
+  - Optionally adds `[include fluidd.cfg]` or `[include mainsail.cfg]` to your config for web UI compatibility.
 
-```
-cd ~/SV08-Replacement-Macros
-./install-macros.sh -u
+- **KAMP and Extensions:**  
+  - Optionally installs KAMP and its config, with symlink and recommended settings.
+  - Optionally installs support for Crowsnest (webcam streaming), Moonraker-Timelapse, and more.
 
-# Then remove the repository
-cd ~
-rm -rf SV08-Replacement-Macros
-```
+- **Hardware Config Utilities:**  
+  - Provides interactive configuration of stepper drivers, MCU/CAN bus device detection, and safety parameter tuning.
+  - Adds or updates `[force_move]`, `[firmware_retraction]`, and extruder safety settings in `printer.cfg`.
 
-This will:
+- **Eddy NG Support:**  
+  - Optionally enables advanced bed mesh and “Tappy Tap” features if you have an Eddy NG sensor.
 
-1) Stop the Klipper service
-2) Remove the replacement macros.cfg if no backup exists
-3) Restore your original macros.cfg from backup (if one exists)
-4) Restart the Klipper service
+- **Software Management:**  
+  - Menu-driven tools for updating macros, installing Kiauh, checking/updating system packages, and installing Python dependencies (like numpy for ADXL).
 
-</details>
+- **Backup Management:**  
+  - Menu-driven backup listing, restoration, and cleaning.
 
-10/8/25
+- **Uninstallation Support:**  
+  - Full uninstall option restores all backed up files, removes the replacement macro if no backup exists, and restarts Klipper.
 
-Script has been completely overhauled. No longer walks use through each item to install. Now user is prompted with a menu of options to install. 
+- **Diagnostics:**  
+  - Menu-driven troubleshooting, log viewing, and verification tools included.
 
-Primary functions of installation are still there. (Install Start_Print? KAMP will auto install and take care of printer.cfg settings). But, the fucntionality to install indiviaul items are now there. 
+---
 
-More macro improvements
+## How to Uninstall the Macros
 
-# Changes
+1. **Run the uninstaller script:**
+   ```bash
+   cd ~/SV08-Replacement-Macros
+   ./install-macros.sh -u
+   ```
 
-- _auto_zoffset and _CALIBRATION_ZOFFSET are temp removed until auto z offset is working
-- _Delay_Calibrate temp removed - is it needed?
-- _global_var - ~~removed - is no longer needed~~ - replaced with stock  _CLIENT_VARIABLE macro from mainsial/fluidd and ~~customized for SV08 users~~ now calls printers max X/Y positions with buffer
-- _print_start_wait - removed - is no longer needed
-- _resume_wait - removed - is no longer needed
-- ALL_FAN_OFF - no longer needed but kept
-- bed_mesh_init - removed - is no longer needed
-- BED_MESH_CALIBRATE - ~~removed~~ replaced with G29 (for Marlin users)
-- CLEAN_NOZZLE is updated/shortened - this is meant to work with the stock SV08 nozzle scrubber setup
-- END_PRINT replaced - see the [replacement end print macro](https://github.com/ss1gohan13/A-Better-End-Print-Macro)
-- Force move is moved into printer.cfg - Its not a macro... 
-- ~~G34 removed~~ G34 remastered.
-- idle timeout - remastered - using fluidd/mainsail CLIENT_VARIABLE macro. Default idle timer set to 10 min. Customize as needed
-- M106 can be removed - not needed for mainline - see [mainline printer.cfg](https://github.com/Rappetor/Sovol-SV08-Mainline/blob/main/files-used/config/printer.cfg) for multipin fan
-- M107 can be removed - not needed for mainline
-- M109 removed - not needed - stock klipper macro
-- M190 removed - not needed - stock klipper macro
-- M600 modified - only use PAUSE - ~~use/customize fluidd/mainsail config to use PAUSE macro and parking position~~ _CLIENT_VARIABLE now included with macros.cfg. Posiiton max X/Y values are called in place.
-- **NEW** mainled - toggle main LED light in printer
-- PROBE_CALIBRATE ~~removed - this is a klipper standard - calibrate at your requested bed temp~~ - Remastered - default temps 150C nozzle 60C bed - bed temp can be customized
-- QUAD_GANTRY_LEVEL ~~removed - not needed - QGL is a klipper standard and can be integrated with replacement~~ Replaced with GANTRY_LEVELING and included with [start print macro](https://github.com/ss1gohan13/A-better-print_start-macro-SV08)
-- RESUME replaced - add [include fluidd.cfg] or [include mainsail.cfg] to the printer.cfg, ~~customize _CLIENT_VARIABLES to specific requested locations~~ _CLIENT_VARIABLE now included with macros.cfg. SV08 max values in place. *WARNING* If you are not on an SV08, update the locations as needed
-- CANCEL_PRINT replaced - add [include fluidd.cfg] or [include mainsail.cfg] to the printer.cfg, ~~customize _CLIENT_VARIABLES to specific requested locations~~ _CLIENT_VARIABLE now included with macros.cfg. SV08 max values in place. *WARNING* If you are not on an SV08, update the locations as needed
-- PAUSE replaced - add [include fluidd.cfg] or [include mainsail.cfg] to the printer.cfg, ~~customize _CLIENT_VARIABLES to specific requested locations~~ _CLIENT_VARIABLE now included with macros.cfg. SV08 max values in place. *WARNING* If you are not on an SV08, update the locations as needed
-- START_PRINT replaced - see the [start print macro](https://github.com/ss1gohan13/A-better-print_start-macro-SV08) replacement for details
-- TEST_BELT - ~~temp removed until confirmed working - Acquire Shake Tune and run calibration as workaround~~ Replaced with SHAPER_CALIBRATE
-- LOAD_FILAMENT - Remastered
-- UNLOAD_FILAMANET - Remastered
+2. **Remove the repository folder:**
+   ```bash
+   cd ~
+   rm -rf SV08-Replacement-Macros
+   ```
+
+**What This Does:**
+- Stops the Klipper service.
+- Restores original `macros.cfg`, `printer.cfg`, and any other backed up macro files from backup (if available).
+- Removes the replacement `macros.cfg` if no backup is present.
+- Restarts the Klipper service.
+- Leaves your system in its original state (pre-installation), thanks to full backup/restore.
+
+---
+
+*For advanced options, troubleshooting, or to use the interactive menu, simply run `./install-macros.sh` without any flags.*
+
+## Major Macro Changes & Improvements
+
+The SV08 Replacement Macros project brings a streamlined, modernized, and SV08-optimized macro environment. Below are the key changes, removals, and improvements compared to the original and prior configurations:
+
+### Macros Removed or Replaced
+
+- **`_auto_zoffset` and `_CALIBRATION_ZOFFSET`:**  
+  Temporarily removed. Auto Z offset adjustment is currently under review for reliability; will be reintroduced once a robust solution is available.
+
+- **`_Delay_Calibrate`:**  
+  Temporarily removed. This macro’s necessity is under evaluation—let us know if you relied on it!
+
+- **`_global_var`:**  
+  Removed. Now replaced with the standard `[gcode_macro _CLIENT_VARIABLE]` from Fluidd/Mainsail, customized for SV08. This macro dynamically handles max X/Y positions (with buffer) and eliminates the need for custom global variables.
+
+- **`_print_start_wait` and `_resume_wait`:**  
+  Removed as their functionality is now handled by improved print start/end logic or is no longer needed.
+
+- **`ALL_FAN_OFF`:**  
+  Mostly obsolete due to improved fan handling, but kept for backward compatibility.
+
+- **`bed_mesh_init`:**  
+  Removed. Mesh initialization is now integrated into other macros or handled automatically.
+
+- **`BED_MESH_CALIBRATE`:**  
+  Removed and replaced by the standard `G29` command for bed mesh calibration (familiar for Marlin users), improving compatibility and clarity.
+
+- **`CLEAN_NOZZLE`:**  
+  Updated and simplified for the stock SV08 nozzle scrubber. Cleans more efficiently and is easier to maintain.
+
+- **`END_PRINT`:**  
+  Fully replaced. See the new, improved [A Better End Print Macro](https://github.com/ss1gohan13/A-Better-End-Print-Macro) for advanced end-of-print handling.
+
+- **`Force move`:**  
+  No longer a macro; now implemented as a `[force_move]` section in your `printer.cfg` for better integration with Klipper.
+
+- **`G34`:**  
+  Removed and replaced with a remastered version for better gantry alignment.
+
+- **`idle timeout`:**  
+  Remastered using the Fluidd/Mainsail `_CLIENT_VARIABLE` macro. Default idle timeout is now set to 10 minutes—customize as needed.
+
+- **`M106` and `M107`:**  
+  These macros for fan control are now handled by standard Klipper or mainline `printer.cfg` multipin fan sections, and are not needed for most users.
+
+- **`M109` and `M190`:**  
+  Removed. These are now handled by stock Klipper macros for temperature control (wait for tool/bed temp).
+
+- **`M600`:**  
+  Modified. Now only uses the `PAUSE` macro for filament changes. Customize filament parking and resume positions via the included `_CLIENT_VARIABLE` macro, which references your SV08’s max X/Y values.
+
+- **`mainled`:**  
+  New macro! Allows you to toggle your printer’s main LED light directly from the interface or macro.
+
+- **`PROBE_CALIBRATE`:**  
+  Removed in favor of Klipper’s standard calibration routines. Remastered behavior: calibration now defaults to 150°C nozzle and 60°C bed, but you can customize the bed temp as needed.
+
+- **`QUAD_GANTRY_LEVEL`:**  
+  Removed. Now integrated into the new `GANTRY_LEVELING` macro and start print sequences; leverages Klipper’s native QGL support.
+
+- **`RESUME`, `CANCEL_PRINT`, `PAUSE`:**  
+  Fully replaced. These now use `[include fluidd.cfg]` or `[include mainsail.cfg]` in your `printer.cfg` and leverage the `_CLIENT_VARIABLE` macro for dynamic SV08-specific locations.  
+  **Note:** If you are not using an SV08, update the positions in `_CLIENT_VARIABLE` as needed.
+
+- **`START_PRINT`:**  
+  Fully replaced. See the [A Better Print_Start Macro](https://github.com/ss1gohan13/A-better-print_start-macro) for smarter print job initialization, temperature management, and bed prep.
+
+- **`TEST_BELT`:**  
+  Temporarily removed until its reliability is confirmed. For now, use `SHAPER_CALIBRATE` or the "Shake Tune" procedure as a workaround.
+
+- **`LOAD_FILAMENT` and `UNLOAD_FILAMENT`:**  
+  Both macros remastered for improved reliability and compatibility with SV08 extruder and filament path.
+
+---
+
+### Why These Changes?
+
+- To improve reliability, compatibility, and ease of use for SV08 (and similar) printers.
+- To remove redundancy with standard Klipper features and adopt best practices from Fluidd/Mainsail.
+- To simplify macro maintenance and make future updates easier for everyone.
+- To enable advanced features and integrations (like dynamic variables, enhanced print start/end, etc.) with less manual editing.
+
+---
+
+**If you need any removed macro, or want to request a specific legacy workflow, open an issue or discussion on the GitHub project!**
