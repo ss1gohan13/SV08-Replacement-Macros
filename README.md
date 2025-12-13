@@ -26,6 +26,38 @@
 
 ---
 
+## What's New in Version 1.3.0
+
+### Modular Architecture
+The installer has been completely refactored from a monolithic 2100+ line script into a clean, maintainable modular structure:
+
+- **`install-macros.sh`** (182 lines): Main entry point with command-line parsing
+- **`lib/functions.sh`**: Core utility functions (verify_ready, check_klipper, service management)
+- **`lib/installers.sh`**: All installation and update functions
+- **`lib/menus.sh`**: Interactive menu system
+- **`lib/hardware.sh`**: Hardware configuration utilities
+- **`lib/diagnostics.sh`**: Diagnostic and troubleshooting tools
+
+This modular design makes the code easier to maintain, extend, and debug.
+
+### Automatic gcode_shell_command Installation
+The macros now **automatically install** the `gcode_shell_command` extension, which is required for shell script functionality within macros. This extension is:
+- Automatically installed when you install the macros
+- Available as a standalone option in the "Additional Features & Extensions" menu (option 4)
+- Downloaded directly from the KIAUH repository for reliability
+- Transparent to the user - just works!
+
+**What is gcode_shell_command?**  
+This Klipper extension allows macros to execute shell commands on the host system, enabling advanced automation and integration with external tools. The SV08 replacement macros use this for enhanced functionality.
+
+### Additional Improvements
+- Enhanced error handling and validation
+- Better module organization and code separation
+- Improved documentation and inline comments
+- All existing features preserved and working identically
+
+---
+
 ## Detailed List of Changes Made
 
 - **Backups:**  
@@ -42,6 +74,7 @@
 
 - **KAMP and Extensions:**  
   - Optionally installs KAMP and its config, with symlink and recommended settings.
+  - **Automatically installs `gcode_shell_command` extension** (required for shell script macros).
   - Optionally installs support for Crowsnest (webcam streaming), Moonraker-Timelapse, and more.
 
 - **Hardware Config Utilities:**  
