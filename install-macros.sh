@@ -91,13 +91,29 @@ BACKUP_DIR="${KLIPPER_CONFIG}/backup"
 # Determine script directory for relative module loading
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Source all library modules
+# Source all library modules with error handling
 echo "Loading modular components..."
-source "${SCRIPT_DIR}/lib/functions.sh"
-source "${SCRIPT_DIR}/lib/installers.sh"
-source "${SCRIPT_DIR}/lib/menus.sh"
-source "${SCRIPT_DIR}/lib/hardware.sh"
-source "${SCRIPT_DIR}/lib/diagnostics.sh"
+
+modules=(
+    "${SCRIPT_DIR}/lib/functions.sh"
+    "${SCRIPT_DIR}/lib/installers.sh"
+    "${SCRIPT_DIR}/lib/menus.sh"
+    "${SCRIPT_DIR}/lib/hardware.sh"
+    "${SCRIPT_DIR}/lib/diagnostics.sh"
+)
+
+for module in "${modules[@]}"; do
+    if [ -f "$module" ]; then
+        source "$module" || {
+            echo -e "${RED}ERROR: Failed to load module: $module${NC}" >&2
+            exit 1
+        }
+    else
+        echo -e "${RED}ERROR: Module not found: $module${NC}" >&2
+        exit 1
+    fi
+done
+
 echo "All modules loaded successfully."
 echo ""
 

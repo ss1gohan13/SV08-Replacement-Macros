@@ -90,6 +90,9 @@ install_gcode_shell_command() {
     echo ""
     
     # Download the Python file directly from KIAUH repository
+    # Note: We download from the official KIAUH repository maintained by dw-0
+    # This is the standard/trusted source for this extension
+    # Users should verify they trust this source before running this installer
     if curl -fsSL -o "${KLIPPER_PATH}/klippy/extras/gcode_shell_command.py" \
         https://raw.githubusercontent.com/dw-0/kiauh/master/kiauh/extensions/gcode_shell_cmd/assets/gcode_shell_command.py; then
         echo -e "${GREEN}gcode_shell_command installed successfully!${NC}"

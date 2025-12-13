@@ -361,34 +361,6 @@ configure_extruder_stepper() {
     fi
 }
 
-# NEW: Hardware configuration menu
-hardware_config_menu() {
-    show_header
-    echo -e "${BLUE}HARDWARE CONFIGURATION UTILITIES${NC}"
-    echo "1) Check MCU IDs"
-    echo "2) Check CAN bus devices"
-    echo "3) Enable Eddy NG tap start print function"
-    echo "4) Configure firmware retraction"
-    echo "5) Configure force_move"
-    echo "6) Add extruder settings"
-    echo "7) Configure stepper drivers"
-    echo "0) Back to main menu"
-    echo ""
-    read -p "Select an option: " hw_choice
-    
-    case $hw_choice in
-        1) check_mcu_ids ;;
-        2) check_can_bus ;;
-        3) configure_eddy_ng_tap; hardware_config_menu ;;
-        4) add_firmware_retraction_to_printer_cfg; hardware_config_menu ;;
-        5) add_force_move; hardware_config_menu ;;
-        6) add_extruder_settings_to_printer_cfg; hardware_config_menu ;;
-        7) configure_stepper_drivers; hardware_config_menu ;;
-        0) show_main_menu ;;
-        *) echo -e "${RED}Invalid option${NC}"; sleep 2; hardware_config_menu ;;
-    esac
-}
-
 # ENHANCED: Function to check MCU IDs with more robust section detection
 check_mcu_ids() {
     show_header
