@@ -45,7 +45,6 @@ The macros now **automatically install** the `gcode_shell_command` extension, wh
 - Automatically installed when you install the macros
 - Available as a standalone option in the "Additional Features & Extensions" menu (option 4)
 - Downloaded directly from the KIAUH repository for reliability
-- Transparent to the user - just works!
 
 **What is gcode_shell_command?**  
 This Klipper extension allows macros to execute shell commands on the host system, enabling advanced automation and integration with external tools. The SV08 replacement macros use this for enhanced functionality.
@@ -54,7 +53,6 @@ This Klipper extension allows macros to execute shell commands on the host syste
 - Enhanced error handling and validation
 - Better module organization and code separation
 - Improved documentation and inline comments
-- All existing features preserved and working identically
 
 ---
 
@@ -82,7 +80,7 @@ This Klipper extension allows macros to execute shell commands on the host syste
   - Adds or updates `[force_move]`, `[firmware_retraction]`, and extruder safety settings in `printer.cfg`.
 
 - **Eddy NG Support:**  
-  - Optionally enables advanced bed mesh and “Tappy Tap” features if you have an Eddy NG sensor.
+  - Optionally enables advanced bed mesh and Tap features if you have an Eddy sensor and using Eddy NG.
 
 - **Software Management:**  
   - Menu-driven tools for updating macros, installing Kiauh, checking/updating system packages, and installing Python dependencies (like numpy for ADXL).
@@ -117,7 +115,7 @@ This Klipper extension allows macros to execute shell commands on the host syste
 - Restores original `macros.cfg`, `printer.cfg`, and any other backed up macro files from backup (if available).
 - Removes the replacement `macros.cfg` if no backup is present.
 - Restarts the Klipper service.
-- Leaves your system in its original state (pre-installation), thanks to full backup/restore.
+- Leaves your system in its original state (pre-installation).
 
 ---
 
@@ -148,7 +146,7 @@ The SV08 Replacement Macros project brings a streamlined, modernized, and SV08-o
   Removed. Mesh initialization is now integrated into other macros or handled automatically.
 
 - **`BED_MESH_CALIBRATE`:**  
-  Removed and replaced by the standard `G29` command for bed mesh calibration (familiar for Marlin users), improving compatibility and clarity.
+  Removed and replaced by the `G29` macro for bed mesh calibration (familiar for Marlin users)
 
 - **`CLEAN_NOZZLE`:**  
   Updated and simplified for the stock SV08 nozzle scrubber. Cleans more efficiently and is easier to maintain.
@@ -195,15 +193,6 @@ The SV08 Replacement Macros project brings a streamlined, modernized, and SV08-o
 
 - **`LOAD_FILAMENT` and `UNLOAD_FILAMENT`:**  
   Both macros remastered for improved reliability and compatibility with SV08 extruder and filament path.
-
----
-
-### Why These Changes?
-
-- To improve reliability, compatibility, and ease of use for SV08 (and similar) printers.
-- To remove redundancy with standard Klipper features and adopt best practices from Fluidd/Mainsail.
-- To simplify macro maintenance and make future updates easier for everyone.
-- To enable advanced features and integrations (like dynamic variables, enhanced print start/end, etc.) with less manual editing.
 
 ---
 
