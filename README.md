@@ -24,6 +24,9 @@
 - Provides an interactive menu for additional features, diagnostics, and hardware/software utilities.
 - **All changes are reversible via the uninstall process and backup restoration.**
 
+**NOTE**
+- If you have updated your part cooling fan config to the mainline config, please update your fan config to `[generic_fan fan]`
+
 ---
 
 ## What's New in Version 1.3.0
