@@ -168,7 +168,7 @@ The SV08 Replacement Macros project brings a streamlined, modernized, and SV08-o
 
 - **`M106` and `M107`:**  
   These macros for fan control are now handled by standard Klipper or mainline `printer.cfg` multipin fan sections, and are not needed for most users.
-  # NOTE: 
+  ## NOTE: You must use [fan_generic fan] for your part cooling fan. Working on implementing this into the script
 
 - **`M109` and `M190`:**  
   Removed. These are now handled by stock Klipper macros for temperature control (wait for tool/bed temp).
