@@ -161,13 +161,14 @@ The SV08 Replacement Macros project brings a streamlined, modernized, and SV08-o
   No longer a macro; now implemented as a `[force_move]` section in your `printer.cfg` for better integration with Klipper.
 
 - **`G34`:**  
-  Removed and replaced with a remastered version for better gantry alignment.
+  Remastered version for better gantry alignment.
 
 - **`idle timeout`:**  
   Remastered using the Fluidd/Mainsail `_CLIENT_VARIABLE` macro. Default idle timeout is now set to 10 minutes—customize as needed.
 
 - **`M106` and `M107`:**  
   These macros for fan control are now handled by standard Klipper or mainline `printer.cfg` multipin fan sections, and are not needed for most users.
+  # NOTE: 
 
 - **`M109` and `M190`:**  
   Removed. These are now handled by stock Klipper macros for temperature control (wait for tool/bed temp).
@@ -182,7 +183,7 @@ The SV08 Replacement Macros project brings a streamlined, modernized, and SV08-o
   Remastered behavior: calibration now defaults to 150°C nozzle and 60°C bed, but you can customize the bed temp as needed.
 
 - **`QUAD_GANTRY_LEVEL`:**  
-  Removed. Now integrated into the new `GANTRY_LEVELING` macro and start print sequences; leverages Klipper’s native QGL support.
+  Standard QGL in klipper still works. Now integrated into the new `GANTRY_LEVELING` macro and start print sequences; leverages Klipper’s native QGL support.
 
 - **`RESUME`, `CANCEL_PRINT`, `PAUSE`:**  
   Fully replaced. These now use `[include fluidd.cfg]` or `[include mainsail.cfg]` in your `printer.cfg` and leverage the `_CLIENT_VARIABLE` macro for dynamic SV08-specific locations.  
@@ -192,7 +193,7 @@ The SV08 Replacement Macros project brings a streamlined, modernized, and SV08-o
   Fully replaced. See the [A Better Print_Start Macro](https://github.com/ss1gohan13/A-better-print_start-macro) for smarter print job initialization, temperature management, and bed prep.
 
 - **`TEST_BELT`:**  
-  Temporarily removed until its reliability is confirmed. For now, use `SHAPER_CALIBRATE` or the "Shake Tune" procedure as a workaround.
+  Temporarily removed until its reliability is confirmed. For now, use `SHAPER_CALIBRATE` or the "Shake Tune" procedure as a workaround. [See Shake and Tune](https://github.com/Frix-x/klippain-shaketune)
 
 - **`LOAD_FILAMENT` and `UNLOAD_FILAMENT`:**  
   Both macros remastered for improved reliability and compatibility with SV08 extruder and filament path.
