@@ -179,7 +179,7 @@ The SV08 Replacement Macros project brings a streamlined, modernized, and SV08-o
   New macro! Allows you to toggle your printer’s main LED light directly from the interface or macro.
 
 - **`PROBE_CALIBRATE`:**  
-  Removed in favor of Klipper’s standard calibration routines. Remastered behavior: calibration now defaults to 150°C nozzle and 60°C bed, but you can customize the bed temp as needed.
+  Remastered behavior: calibration now defaults to 150°C nozzle and 60°C bed, but you can customize the bed temp as needed.
 
 - **`QUAD_GANTRY_LEVEL`:**  
   Removed. Now integrated into the new `GANTRY_LEVELING` macro and start print sequences; leverages Klipper’s native QGL support.
