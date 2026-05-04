@@ -25,7 +25,7 @@
 - **All changes are reversible via the uninstall process and backup restoration.**
 
 **NOTE**
-- If you have updated your part cooling fan config to the mainline config, please update your fan config to `[generic_fan fan]`
+- If you have updated your part cooling fan config to the mainline config, please update your fan config to `[fan_generic fan]`
 
 ---
 
