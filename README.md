@@ -1,3 +1,12 @@
+**NOTE**
+- If you have updated your part cooling fan config to the mainline config, please update your fan config to `[fan_generic fan]`
+- example: 
+```
+[fan_generic fan]
+pin: <YOUR:Pin>
+```
+
+---
 ## How to Install the Macros
 
 1. **SSH into your printer** using your preferred SSH client.
@@ -23,14 +32,6 @@
 - Restarts the Klipper service.
 - Provides an interactive menu for additional features, diagnostics, and hardware/software utilities.
 - **All changes are reversible via the uninstall process and backup restoration.**
-
-**NOTE**
-- If you have updated your part cooling fan config to the mainline config, please update your fan config to `[fan_generic fan]`
-- example: 
-
-[fan_generic fan]
-
-pin: EBBCan:PA0
 
 ---
 
