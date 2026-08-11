@@ -26,6 +26,9 @@
 
 **NOTE**
 - If you have updated your part cooling fan config to the mainline config, please update your fan config to `[fan_generic fan]`
+- example: 
+[fan_generic fan]
+pin: EBBCan:PA0
 
 ---
 
