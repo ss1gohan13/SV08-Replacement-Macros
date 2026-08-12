@@ -151,6 +151,10 @@ check_and_update_printer_cfg() {
     
     echo "Processing printer.cfg file..."
 
+    # Detect/migrate part cooling fan configuration before applying the rest
+    # of the printer.cfg updates. This function is provided by fan_config.sh.
+    configure_part_cooling_fan "$working_cfg"
+
     # Comment out the hardcoded Macro.cfg (existing behavior)
     sed -i 's/^\[include Macro\.cfg\]/# [include Macro.cfg]/' "$working_cfg"
     
@@ -634,6 +638,10 @@ update_macros() {
         stop_klipper
         backup_existing_macros
         install_macros
+
+        # Re-run printer.cfg migrations when updating existing installs.
+        check_and_update_printer_cfg
+
         start_klipper
         
         echo -e "${GREEN}SV08 macros updated successfully!${NC}"
