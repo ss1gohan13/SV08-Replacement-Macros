@@ -1,10 +1,12 @@
 **NOTE**
-- If you have updated your part cooling fan config to the mainline config, please update your fan config to `[fan_generic fan]`
+- Please ensure your `[fan]` config set to `[fan_generic fan]`
 - example: 
 ```
 [fan_generic fan]
 pin: <YOUR:Pin>
 ```
+
+The installation script will now prompt you for your fan config.
 
 ---
 ## How to Install the Macros
