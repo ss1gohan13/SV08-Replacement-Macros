@@ -1,5 +1,5 @@
 **NOTE**
-- Please ensure your `[fan]` config set to `[fan_generic fan]`
+- Please ensure your part cooling fan (normally configured as `[fan]`) is configured to `[fan_generic fan]`
 - example: 
 ```
 [fan_generic fan]
