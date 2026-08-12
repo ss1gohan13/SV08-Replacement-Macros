@@ -3,17 +3,17 @@
 # This script manages the installation, configuration, and maintenance of SV08 replacement macros
 #
 # Author: ss1gohan13
-# Version: 1.3.0
-# Last Updated: 2025-12-13
+# Version: 1.3.5
+# Last Updated: 2026-08-11
 #
 # This is the main entry point for the modular installer.
 # Core functionality is split into separate modules in the lib/ directory:
 #   - lib/functions.sh: Core utility functions
+#   - lib/fan_config.sh: Part cooling fan detection and migration
 #   - lib/installers.sh: Installation and update functions
 #   - lib/menus.sh: Interactive menu system
 #   - lib/hardware.sh: Hardware configuration utilities
 #   - lib/diagnostics.sh: Diagnostic and troubleshooting tools
-
 # Force script to exit if an error occurs
 set -e
 
@@ -22,7 +22,7 @@ set -e
 # ==============================================================================
 
 # Version and metadata
-VERSION="1.3.0"
+VERSION="1.3.5"
 
 # Path configuration
 KLIPPER_CONFIG="${HOME}/printer_data/config"
@@ -30,7 +30,6 @@ KLIPPER_PATH="${HOME}/klipper"
 KLIPPER_SERVICE_NAME=klipper
 BACKUP_DIR="${KLIPPER_CONFIG}/backup"
 CURRENT_DATE=$(date +%Y%m%d_%H%M%S)
-
 # Operational modes
 MENU_MODE=1      # Default to interactive menu mode
 UNINSTALL=0      # Uninstall flag
@@ -43,11 +42,9 @@ BLUE='\033[0;34m'
 MAGENTA='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m'     # No Color
-
 # ==============================================================================
 # COMMAND-LINE ARGUMENT PARSING
 # ==============================================================================
-
 usage() {
     echo "Usage: $0 [-c <config path>] [-s <klipper service name>] [-u] [-l]" 1>&2
     echo "  -c : Specify custom config path (default: ${KLIPPER_CONFIG})" 1>&2
@@ -57,7 +54,6 @@ usage() {
     echo "  -h : Show this help message" 1>&2
     exit 1
 }
-
 while getopts "c:s:ulh" arg; do
     case $arg in
         c)
@@ -80,7 +76,6 @@ while getopts "c:s:ulh" arg; do
             ;;
     esac
 done
-
 # Update backup directory path in case custom config was specified
 BACKUP_DIR="${KLIPPER_CONFIG}/backup"
 
@@ -90,18 +85,17 @@ BACKUP_DIR="${KLIPPER_CONFIG}/backup"
 
 # Determine script directory for relative module loading
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
 # Source all library modules with error handling
 echo "Loading modular components..."
 
 modules=(
     "${SCRIPT_DIR}/lib/functions.sh"
+    "${SCRIPT_DIR}/lib/fan_config.sh"
     "${SCRIPT_DIR}/lib/installers.sh"
     "${SCRIPT_DIR}/lib/menus.sh"
     "${SCRIPT_DIR}/lib/hardware.sh"
     "${SCRIPT_DIR}/lib/diagnostics.sh"
 )
-
 for module in "${modules[@]}"; do
     if [ -f "$module" ]; then
         source "$module" || {
@@ -116,14 +110,12 @@ done
 
 echo "All modules loaded successfully."
 echo ""
-
 # ==============================================================================
 # MAIN EXECUTION LOGIC
 # ==============================================================================
 
 # Verify script is not run as root
 verify_ready
-
 # Execute based on operational mode
 if [ $UNINSTALL -eq 1 ]; then
     # Uninstall mode: restore from backup
@@ -138,7 +130,6 @@ if [ $UNINSTALL -eq 1 ]; then
 elif [ $MENU_MODE -eq 1 ]; then
     # Interactive menu mode (default)
     show_main_menu
-
 else
     # Linear installation flow (non-interactive)
     check_klipper
@@ -152,13 +143,12 @@ else
     add_force_move
     start_klipper
     echo -e "${GREEN}Installation complete! Please check your printer's web interface to verify the changes.${NC}"
-
     echo ""
     echo "Would you like to install A Better Print_Start Macro?"
     echo "Note: This will also install KAMP, which needs to be configured per KAMP documentation."
     echo "More information can be found at: https://github.com/ss1gohan13/A-better-print_start-macro"
     read -p "Install Print_Start macro and KAMP? (y/N): " install_print_start
-    
+
     if [[ "$install_print_start" =~ ^[Yy]$ ]]; then
         echo "Installing KAMP and A Better Print_Start Macro..."
         install_kamp
@@ -166,24 +156,23 @@ else
         echo ""
         echo -e "${GREEN}Print_Start macro and KAMP have been installed!${NC}"
         echo "Please visit https://github.com/ss1gohan13/A-better-print_start-macro for instructions on configuring your slicer settings."
-        
+
         # Add numpy installation for ADXL resonance measurements
         echo ""
         echo "Would you like to install numpy for ADXL resonance measurements?"
         echo "This is recommended if you plan to use input shaping with an ADXL345 accelerometer."
         read -p "Install numpy? (y/N): " install_numpy
-        
+
         if [[ "$install_numpy" =~ ^[Yy]$ ]]; then
             install_numpy_for_adxl
         fi
     fi
-
     echo ""
     echo "Would you like to install A Better End Print Macro?"
     echo "Note: This requires additional changes to your slicer settings."
     echo "More information can be found at: https://github.com/ss1gohan13/A-Better-End-Print-Macro"
     read -p "Install End Print macro? (y/N): " install_end_print
-    
+
     if [[ "$install_end_print" =~ ^[Yy]$ ]]; then
         echo "Installing A Better End Print Macro..."
         cd ~
@@ -192,7 +181,7 @@ else
         echo -e "${GREEN}End Print macro has been installed!${NC}"
         echo "Please visit https://github.com/ss1gohan13/A-Better-End-Print-Macro for instructions on configuring your slicer settings."
     fi
-    
+
     echo ""
     echo -e "${CYAN}TIP: If you prefer the menu-driven interface, just run this script without the -l flag!${NC}"
 fi
