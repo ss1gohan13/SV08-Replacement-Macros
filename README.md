@@ -37,6 +37,14 @@ The installation script will now prompt you for your fan config.
 
 ---
 
+## What's New in Version 1.3.5
+
+### Creation of fan config installation
+
+- **`fan_config.sh`** created to handle fan configuration to allow use of M106 and M107 macros
+
+---
+
 ## What's New in Version 1.3.0
 
 ### Modular Architecture
