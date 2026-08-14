@@ -1,3 +1,5 @@
+The installation script will now prompt you for your fan config.
+
 **NOTE**
 - Please ensure your part cooling fan (normally configured as `[fan]`) is configured to `[fan_generic fan]`
 - example: 
@@ -5,9 +7,6 @@
 [fan_generic fan]
 pin: <YOUR:Pin>
 ```
-
-The installation script will now prompt you for your fan config.
-
 ---
 ## How to Install the Macros
 
