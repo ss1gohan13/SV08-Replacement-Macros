@@ -15,7 +15,12 @@ get_user_macro_files() {
     done
 
     echo ""
-    read -p "Do you have a custom macro.cfg installed? (y/N): " has_custom_macro
+    echo "Do you have a custom macro.cfg installed? (Y/n)"
+    echo -e "${YELLOW}(Hint: Yes. Yes you do. Select Yes or Y)${NC}"
+    read -p "> " has_custom_macro
+
+    has_custom_macro=${has_custom_macro:-y}
+
     if [[ ! "$has_custom_macro" =~ ^[Yy]$ ]]; then
         echo "No custom macro.cfg detected. Will use default 'macros.cfg'."
         MACRO_FILES=("macros.cfg")
